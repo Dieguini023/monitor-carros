@@ -10,8 +10,16 @@ android {
         applicationId = "co.diego.monitorcarros"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.3.1"
+    }
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("monitor.keystore")
+            storePassword = "monitor123"
+            keyAlias = "monitor"
+            keyPassword = "monitor123"
+        }
     }
     buildTypes {
         release { isMinifyEnabled = false }
