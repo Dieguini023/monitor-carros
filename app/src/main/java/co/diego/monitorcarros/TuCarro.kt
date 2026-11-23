@@ -28,6 +28,9 @@ object TuCarro {
             "?minPrice=${store.precioMin}&maxPrice=${store.precioMax}&daysSinceListed=1&sortBy=creation_time_descend"
     }
 
+    fun urlTodos(store: Store): String =
+        "https://carros.tucarro.com.co/${slug(store.departamento)}/_PriceRange_${store.precioMin}COP-${store.precioMax}COP"
+
     fun url(store: Store, desde: Int): String {
         val pagina = if (desde > 1) "_Desde_$desde" else ""
         return "https://carros.tucarro.com.co/${slug(store.departamento)}/" +

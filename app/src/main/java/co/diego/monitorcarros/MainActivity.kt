@@ -1,199 +1,241 @@
 package co.diego.monitorcarros
 
-import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.graphics.Color
 import android.graphics.Typeface
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
-import android.text.InputType
-import android.text.util.Linkify
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import java.util.concurrent.TimeUnit
+import org.json.JSONArray
+import org.json.JSONTokener
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+/**
+ * Pantalla principal: ver TuCarro y Marketplace DENTRO de la app.
+ * Es usted quien navega (como en Chrome); la app solo marca lo nuevo
+ * desde su última revisión en las páginas de TuCarro.
+ */
 class MainActivity : AppCompatActivity() {
     private lateinit var store: Store
-    private lateinit var col: LinearLayout
-    private lateinit var estado: TextView
-    private lateinit var permisos: TextView
-    private lateinit var historial: TextView
-    private var d = 1f
+    private lateinit var web: WebView
+    private lateinit var banner: TextView
+    private val tabs = mutableListOf<Button>()
+    private var pestana = 0
+    private var foto: Map<String, Long> = emptyMap()
+    private val handler = Handler(Looper.getMainLooper())
 
-    private fun texto(t: String, tam: Float = 15f, negrita: Boolean = false): TextView {
-        val v = TextView(this)
-        v.text = t
-        v.textSize = tam
-        if (negrita) v.setTypeface(v.typeface, Typeface.BOLD)
-        v.setPadding(0, (12 * d).toInt(), 0, (4 * d).toInt())
-        col.addView(v)
-        return v
-    }
+    private val jsLista = """
+        (function(){
+          var out=[], seen={};
+          var as=document.querySelectorAll('a[href*="MCO"]');
+          for (var i=0;i<as.length;i++){
+            var a=as[i]; var m=a.href.match(/MCO-?(\d{6,})/); if(!m) continue;
+            var id='MCO'+m[1]; if(seen[id]) continue;
+            var card=a.closest('li')||a.closest('.poly-card')||a.parentElement;
+            var t=(a.textContent||'').trim();
+            if(t.length<4 && card){ var h=card.querySelector('h2,h3,.poly-component__title'); t=h?h.textContent.trim():''; }
+            if(t.length<4) continue;
+            var p=card?card.querySelector('.andes-money-amount__fraction'):null;
+            seen[id]=1; out.push({id:id,t:t.substring(0,90),p:p?p.textContent.trim():'',u:a.href.split('#')[0]});
+          }
+          return JSON.stringify(out);
+        })()
+    """.trimIndent()
 
-    private fun campo(etiqueta: String, valor: String, numero: Boolean = false): EditText {
-        texto(etiqueta, 13f)
-        val e = EditText(this)
-        e.setText(valor)
-        e.inputType = if (numero) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
-        col.addView(e)
-        return e
-    }
+    private fun jsResaltar(ids: List<String>): String = """
+        (function(ids){
+          var set={}; ids.forEach(function(x){set[x]=1;});
+          var as=document.querySelectorAll('a[href*="MCO"]');
+          for (var i=0;i<as.length;i++){
+            var m=as[i].href.match(/MCO-?(\d{6,})/); if(!m||!set['MCO'+m[1]]) continue;
+            var c=as[i].closest('li')||as[i].closest('.poly-card')||as[i].parentElement;
+            if(!c||c.getAttribute('data-nuevo')) continue;
+            c.setAttribute('data-nuevo','1');
+            c.style.outline='4px solid #ff9800'; c.style.borderRadius='8px';
+            var b=document.createElement('div'); b.textContent='🆕 NUEVO';
+            b.style.cssText='background:#ff9800;color:#fff;font-weight:bold;padding:4px 8px;display:inline-block;border-radius:6px;margin:4px';
+            c.insertBefore(b,c.firstChild);
+          }
+        })(${JSONArray(ids)})
+    """.trimIndent()
 
-    private fun boton(t: String, accion: () -> Unit): Button {
-        val b = Button(this)
-        b.text = t
-        b.setOnClickListener { accion() }
-        col.addView(b)
-        return b
-    }
-
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = Store(this)
         Notifier.crearCanal(this)
-        d = resources.displayMetrics.density
-        col = LinearLayout(this)
-        col.orientation = LinearLayout.VERTICAL
-        val pad = (16 * d).toInt()
-        col.setPadding(pad, pad, pad, pad)
 
-        texto("Monitor de Carros", 22f, true)
-        estado = texto("", 14f)
-        permisos = texto("", 13f)
-
-        texto("1. Búsqueda en Mercado Libre / TuCarro", 17f, true)
-        val etId = campo("App ID de Mercado Libre (opcional: vacío = leer TuCarro web)", store.clientId)
-        val etSecret = campo("Secret Key (opcional)", store.clientSecret)
-        val etDepto = campo("Departamento", store.departamento)
-        val etCiudades = campo("Ciudades (separadas por coma; la primera se usa para Marketplace)", store.ciudades)
-        val etMin = campo("Precio mínimo", store.precioMin.toString(), true)
-        val etMax = campo("Precio máximo", store.precioMax.toString(), true)
-        val etIntervalo = campo("Recordarme / revisar cada (minutos, mínimo 15)", store.intervalo.toString(), true)
-
-        boton("Guardar y activar monitor") {
-            val nuevoDepto = etDepto.text.toString().trim().ifBlank { "Santander" }
-            val nuevoMin = etMin.text.toString().toLongOrNull() ?: 30_000_000L
-            val nuevoMax = etMax.text.toString().toLongOrNull() ?: 90_000_000L
-            val cambioBusqueda = !nuevoDepto.equals(store.departamento, ignoreCase = true) ||
-                nuevoMin != store.precioMin || nuevoMax != store.precioMax
-            if (!nuevoDepto.equals(store.departamento, ignoreCase = true)) store.estadoId = ""
-            store.clientId = etId.text.toString().trim()
-            store.clientSecret = etSecret.text.toString().trim()
-            store.departamento = nuevoDepto
-            store.ciudades = etCiudades.text.toString().trim()
-            store.precioMin = nuevoMin
-            store.precioMax = nuevoMax
-            store.intervalo = (etIntervalo.text.toString().toIntOrNull() ?: 60).coerceAtLeast(15)
-            store.token = ""
-            if (cambioBusqueda) store.reiniciarVistos()
-            programar()
-            Toast.makeText(this, "Monitor activo: revisa cada ${store.intervalo} min", Toast.LENGTH_LONG).show()
-            refrescar()
+        // Al pasar a la v0.5 se apaga el recordatorio cada 15 min (se puede volver a activar en Ajustes)
+        if (!store.migrado05) {
+            store.intervalo = 0
+            WorkManager.getInstance(this).cancelUniqueWork("monitor")
+            store.migrado05 = true
         }
 
-        boton("Probar recordatorio ahora") {
-            estado.text = "Revisando… (puede tardar un minuto)"
-            Thread {
-                val r = try {
-                    Revision.ejecutar(applicationContext)
+        val d = resources.displayMetrics.density
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+
+        val fila1 = LinearLayout(this)
+        fila1.orientation = LinearLayout.HORIZONTAL
+        listOf("TuCarro hoy", "TuCarro todo", "Marketplace").forEachIndexed { i, t ->
+            val b = Button(this)
+            b.text = t
+            b.textSize = 12f
+            b.isAllCaps = false
+            b.setOnClickListener { abrir(i) }
+            fila1.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            tabs.add(b)
+        }
+        root.addView(fila1)
+
+        val fila2 = LinearLayout(this)
+        fila2.orientation = LinearLayout.HORIZONTAL
+        fun chico(t: String, accion: () -> Unit) {
+            val b = Button(this)
+            b.text = t
+            b.textSize = 12f
+            b.isAllCaps = false
+            b.setOnClickListener { accion() }
+            fila2.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        chico("◀ Atrás") { if (web.canGoBack()) web.goBack() }
+        chico("⟳ Actualizar") { web.reload() }
+        chico("⚙ Ajustes") { startActivity(Intent(this, AjustesActivity::class.java)) }
+        root.addView(fila2)
+
+        banner = TextView(this)
+        banner.textSize = 15f
+        banner.setTypeface(banner.typeface, Typeface.BOLD)
+        banner.setPadding((12 * d).toInt(), (8 * d).toInt(), (12 * d).toInt(), (8 * d).toInt())
+        banner.setBackgroundColor(Color.parseColor("#FFF3CD"))
+        banner.setTextColor(Color.parseColor("#5C4400"))
+        banner.visibility = View.GONE
+        root.addView(banner)
+
+        web = WebView(this)
+        web.settings.javaScriptEnabled = true
+        web.settings.domStorageEnabled = true
+        web.settings.loadWithOverviewMode = true
+        web.settings.useWideViewPort = true
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+        web.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val u = request.url
+                if (u.scheme == "http" || u.scheme == "https") return false
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, u))
                 } catch (e: Exception) {
-                    val m = "Error: ${e.message}"
-                    store.ultimoEstado = m
-                    m
+                    // esquema que no se puede abrir: se ignora
                 }
-                runOnUiThread {
-                    Toast.makeText(this, r, Toast.LENGTH_LONG).show()
-                    refrescar()
+                return true
+            }
+
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                foto = HashMap(store.vistos("vistosWeb"))
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                if (url.contains("tucarro") || url.contains("mercadolibre")) {
+                    handler.removeCallbacksAndMessages(null)
+                    handler.postDelayed({ analizar() }, 1500)
                 }
-            }.start()
-        }
-
-        boton("Abrir TuCarro: publicados hoy") {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.url(store, 1))))
-        }
-
-        boton("Abrir Marketplace: vehículos recientes") {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.marketplace(store))))
-        }
-
-        boton("Enviar diagnóstico a Claude") {
-            val t = TuCarro.diagnostico(applicationContext)
-            val i = Intent(Intent.ACTION_SEND)
-            i.type = "text/plain"
-            i.putExtra(Intent.EXTRA_TEXT, "Diagnóstico Monitor Carros\n" + store.ultimoEstado + "\n" + t)
-            startActivity(Intent.createChooser(i, "Enviar diagnóstico"))
-        }
-
-        texto("2. Permisos (actívelos todos)", 17f, true)
-        boton("Permitir notificaciones") {
-            if (Build.VERSION.SDK_INT >= 33) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-            } else {
-                Toast.makeText(this, "Ya están permitidas en esta versión de Android", Toast.LENGTH_SHORT).show()
             }
         }
-        boton("Que Android no la apague (batería)") {
-            try {
-                startActivity(
-                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
-                )
+        root.addView(web, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        setContentView(root)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (web.canGoBack()) {
+                    web.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
+        if (savedInstanceState == null) abrir(0) else web.restoreState(savedInstanceState)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        web.saveState(outState)
+    }
+
+    private fun url(i: Int): String = when (i) {
+        0 -> TuCarro.url(store, 1)
+        1 -> TuCarro.urlTodos(store)
+        else -> TuCarro.marketplace(store)
+    }
+
+    private fun abrir(i: Int) {
+        pestana = i
+        tabs.forEachIndexed { j, b -> b.setTypeface(null, if (j == i) Typeface.BOLD else Typeface.NORMAL) }
+        banner.visibility = View.GONE
+        web.loadUrl(url(i))
+    }
+
+    private fun mostrar(t: String) {
+        banner.text = t
+        banner.visibility = View.VISIBLE
+    }
+
+    private fun analizar() {
+        web.evaluateJavascript(jsLista) { res ->
+            val lista = try {
+                JSONArray(JSONTokener(res).nextValue() as String)
             } catch (e: Exception) {
-                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                JSONArray()
+            }
+            if (lista.length() == 0) return@evaluateJavascript
+
+            val vistos = store.vistos("vistosWeb")
+            val primera = foto.isEmpty() && vistos.isEmpty()
+            val ahora = System.currentTimeMillis()
+            val nuevos = mutableListOf<String>()
+            val hora = SimpleDateFormat("dd/MM hh:mm a", Locale("es", "CO")).format(Date())
+            for (i in 0 until lista.length()) {
+                val o = lista.getJSONObject(i)
+                val id = o.getString("id")
+                if (!foto.containsKey(id)) {
+                    nuevos.add(id)
+                    if (!vistos.containsKey(id) && !primera) {
+                        val precio = o.optString("p")
+                        store.agregarHistorial(
+                            "$hora · 🆕 ${o.optString("t")}" +
+                                (if (precio.isNotBlank()) " · $$precio" else "") + "\n" + o.optString("u"),
+                        )
+                    }
+                }
+                if (!vistos.containsKey(id)) vistos[id] = ahora
+            }
+            store.guardarVistos(vistos, "vistosWeb")
+
+            when {
+                primera -> mostrar("Primera revisión: guardé ${lista.length()} carros. Desde ahora le marco los nuevos.")
+                nuevos.isEmpty() -> mostrar("Sin carros nuevos desde su última revisión (${lista.length()} en pantalla)")
+                else -> {
+                    mostrar("🆕 ${nuevos.size} nuevo(s) desde su última revisión (marcados en naranja)")
+                    web.evaluateJavascript(jsResaltar(nuevos), null)
+                }
             }
         }
-
-        texto("3. Últimos avisos", 17f, true)
-        boton("Borrar historial") {
-            store.borrarHistorial()
-            refrescar()
-        }
-        historial = texto("", 13f)
-        historial.autoLinkMask = Linkify.WEB_URLS
-
-        val scroll = ScrollView(this)
-        scroll.addView(col)
-        setContentView(scroll)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        refrescar()
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        refrescar()
-    }
-
-    private fun programar() {
-        val req = PeriodicWorkRequestBuilder<MonitorWorker>(store.intervalo.toLong(), TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork("monitor", ExistingPeriodicWorkPolicy.UPDATE, req)
-    }
-
-    private fun si(b: Boolean) = if (b) "✅" else "❌"
-
-    private fun refrescar() {
-        estado.text = "Última revisión: " + store.ultimoEstado.ifBlank { "todavía ninguna" }
-        val notif = Build.VERSION.SDK_INT < 33 ||
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        val bateria = (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName)
-        permisos.text = "Notificaciones ${si(notif)}   Batería ${si(bateria)}"
-        historial.text = store.historial().joinToString("\n\n").ifBlank { "Sin avisos todavía." }
     }
 }

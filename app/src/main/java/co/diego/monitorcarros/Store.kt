@@ -42,7 +42,7 @@ class Store(ctx: Context) {
         }
 
     var intervalo: Int
-        get() = p.getInt("intervalo", 60)
+        get() = p.getInt("intervalo", 0)
         set(v) {
             p.edit().putInt("intervalo", v).apply()
         }
@@ -65,10 +65,10 @@ class Store(ctx: Context) {
         get() = s("ultimoEstado")
         set(v) = put("ultimoEstado", v)
 
-    fun vistos(): MutableMap<String, Long> {
+    fun vistos(clave: String = "vistos"): MutableMap<String, Long> {
         val m = HashMap<String, Long>()
         val o = try {
-            JSONObject(s("vistos", "{}"))
+            JSONObject(s(clave, "{}"))
         } catch (e: Exception) {
             JSONObject()
         }
@@ -80,12 +80,18 @@ class Store(ctx: Context) {
         return m
     }
 
-    fun guardarVistos(m: Map<String, Long>) {
+    fun guardarVistos(m: Map<String, Long>, clave: String = "vistos") {
         val limite = System.currentTimeMillis() - 60L * 24 * 3600 * 1000
         val o = JSONObject()
         for ((k, v) in m) if (v >= limite) o.put(k, v)
-        p.edit().putString("vistos", o.toString()).commit()
+        p.edit().putString(clave, o.toString()).commit()
     }
+
+    var migrado05: Boolean
+        get() = p.getBoolean("migrado05", false)
+        set(v) {
+            p.edit().putBoolean("migrado05", v).commit()
+        }
 
     var baseHecha: Boolean
         get() = p.getBoolean("baseHecha", false)
