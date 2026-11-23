@@ -121,6 +121,10 @@ class MainActivity : AppCompatActivity() {
             }.start()
         }
 
+        boton("Abrir TuCarro: publicados hoy") {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.url(store, 1))))
+        }
+
         boton("Enviar diagnóstico a Claude") {
             val t = TuCarro.diagnostico(applicationContext)
             val i = Intent(Intent.ACTION_SEND)

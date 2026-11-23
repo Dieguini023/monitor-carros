@@ -22,7 +22,7 @@ object TuCarro {
             .replace(Regex("\\p{M}"), "")
             .replace(Regex("\\s+"), "-")
 
-    private fun url(store: Store, desde: Int): String {
+    fun url(store: Store, desde: Int): String {
         val pagina = if (desde > 1) "_Desde_$desde" else ""
         return "https://carros.tucarro.com.co/${slug(store.departamento)}/" +
             "${pagina}_PriceRange_${store.precioMin}COP-${store.precioMax}COP_PublishedToday_YES"

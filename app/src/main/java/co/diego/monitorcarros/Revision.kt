@@ -18,7 +18,13 @@ object Revision {
         val store = Store(ctx)
         val hora = SimpleDateFormat("dd/MM hh:mm a", Locale("es", "CO")).format(Date())
         val usaApi = store.clientId.isNotBlank() && store.clientSecret.isNotBlank()
-        val carros = if (usaApi) MercadoLibre.buscarTodo(store) else TuCarro.buscar(ctx, store)
+        if (!usaApi) {
+            val msg = "Lectura automática de TuCarro en pausa (Mercado Libre la bloquea). " +
+                "Use el botón ABRIR TUCARRO: PUBLICADOS HOY."
+            store.ultimoEstado = "$hora · $msg"
+            return msg
+        }
+        val carros = MercadoLibre.buscarTodo(store)
         val fuente = if (usaApi) "Mercado Libre (API)" else "TuCarro web"
         val vistos = store.vistos()
         val ahora = System.currentTimeMillis()
