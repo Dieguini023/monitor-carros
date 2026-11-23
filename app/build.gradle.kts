@@ -7,11 +7,11 @@ android {
     namespace = "co.diego.monitorcarros"
     compileSdk = 34
     defaultConfig {
-        applicationId = "co.diego.monitorcarros"
+        applicationId = "co.diegomunoz.alertascarros"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.3.2"
     }
     signingConfigs {
         getByName("debug") {
