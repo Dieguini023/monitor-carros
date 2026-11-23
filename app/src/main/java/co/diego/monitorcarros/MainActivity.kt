@@ -114,7 +114,11 @@ class MainActivity : AppCompatActivity() {
             fila2.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
         chico("◀ Atrás") { if (web.canGoBack()) web.goBack() }
-        chico("⟳ Actualizar") { web.reload() }
+        chico("⟳ Actualizar") {
+            tomarFoto()
+            banner.visibility = View.GONE
+            web.reload()
+        }
         chico("⚙ Ajustes") { startActivity(Intent(this, AjustesActivity::class.java)) }
         root.addView(fila2)
 
@@ -144,10 +148,6 @@ class MainActivity : AppCompatActivity() {
                     // esquema que no se puede abrir: se ignora
                 }
                 return true
-            }
-
-            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
-                foto = HashMap(store.vistos("vistosWeb"))
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -185,8 +185,15 @@ class MainActivity : AppCompatActivity() {
         else -> TuCarro.marketplace(store)
     }
 
+    private fun clave(): String = "vistosWeb$pestana"
+
+    private fun tomarFoto() {
+        foto = HashMap(store.vistos(clave()))
+    }
+
     private fun abrir(i: Int) {
         pestana = i
+        tomarFoto()
         tabs.forEachIndexed { j, b -> b.setTypeface(null, if (j == i) Typeface.BOLD else Typeface.NORMAL) }
         banner.visibility = View.GONE
         web.loadUrl(url(i))
@@ -206,8 +213,8 @@ class MainActivity : AppCompatActivity() {
             }
             if (lista.length() == 0) return@evaluateJavascript
 
-            val vistos = store.vistos("vistosWeb")
-            val primera = foto.isEmpty() && vistos.isEmpty()
+            val vistos = store.vistos(clave())
+            val primera = foto.isEmpty()
             val ahora = System.currentTimeMillis()
             val nuevos = mutableListOf<String>()
             val hora = SimpleDateFormat("dd/MM hh:mm a", Locale("es", "CO")).format(Date())
@@ -226,7 +233,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (!vistos.containsKey(id)) vistos[id] = ahora
             }
-            store.guardarVistos(vistos, "vistosWeb")
+            store.guardarVistos(vistos, clave())
 
             when {
                 primera -> mostrar("Primera revisión: guardé ${lista.length()} carros. Desde ahora le marco los nuevos.")
