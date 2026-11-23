@@ -17,14 +17,23 @@ object Revision {
     fun ejecutar(ctx: Context): String {
         val store = Store(ctx)
         val hora = SimpleDateFormat("dd/MM hh:mm a", Locale("es", "CO")).format(Date())
-        val carros = MercadoLibre.buscarTodo(store)
+        val usaApi = store.clientId.isNotBlank() && store.clientSecret.isNotBlank()
+        val carros = if (usaApi) MercadoLibre.buscarTodo(store) else TuCarro.buscar(ctx, store)
+        val fuente = if (usaApi) "Mercado Libre (API)" else "TuCarro web"
         val vistos = store.vistos()
         val ahora = System.currentTimeMillis()
 
-        if (vistos.isEmpty()) {
+        if (!store.baseHecha) {
+            if (carros.isEmpty() && !usaApi) {
+                val msg = "Leí la página de TuCarro pero encontré 0 carros publicados hoy. " +
+                    "Si persiste, toque ENVIAR DIAGNÓSTICO A CLAUDE."
+                store.ultimoEstado = "$hora · $msg"
+                return msg
+            }
             carros.forEach { vistos[it.id] = ahora }
             store.guardarVistos(vistos)
-            val msg = "Base inicial: ${carros.size} carros en ${store.departamento} entre " +
+            store.baseHecha = true
+            val msg = "Base inicial ($fuente): ${carros.size} carros publicados hoy en ${store.departamento} entre " +
                 "${pesos(store.precioMin)} y ${pesos(store.precioMax)}. Desde ahora aviso solo los nuevos."
             Notifier.mostrar(ctx, 1, "✅ Monitor activo", msg, null)
             store.ultimoEstado = "$hora · $msg"
@@ -40,7 +49,7 @@ object Revision {
 
         for (c in filtrados.take(MAX_AVISOS)) {
             val texto = buildString {
-                append(pesos(c.precio))
+                append(if (c.precio > 0) pesos(c.precio) else "Precio no visible")
                 c.anio?.let { append(" · Modelo $it") }
                 c.km?.let { append(" · $it") }
                 val lugar = listOf(c.barrio, c.ciudad).filter { it.isNotBlank() }.joinToString(", ")
@@ -57,7 +66,7 @@ object Revision {
             )
         }
         store.guardarVistos(vistos)
-        val msg = "${carros.size} carros activos, ${filtrados.size} nuevos"
+        val msg = "$fuente: ${carros.size} carros hoy, ${filtrados.size} nuevos"
         store.ultimoEstado = "$hora · $msg"
         return msg
     }

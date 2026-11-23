@@ -87,8 +87,14 @@ class Store(ctx: Context) {
         p.edit().putString("vistos", o.toString()).commit()
     }
 
+    var baseHecha: Boolean
+        get() = p.getBoolean("baseHecha", false)
+        set(v) {
+            p.edit().putBoolean("baseHecha", v).commit()
+        }
+
     fun reiniciarVistos() {
-        p.edit().remove("vistos").commit()
+        p.edit().remove("vistos").putBoolean("baseHecha", false).commit()
     }
 
     fun historial(): List<String> {

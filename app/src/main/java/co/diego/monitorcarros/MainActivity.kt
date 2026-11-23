@@ -75,8 +75,8 @@ class MainActivity : AppCompatActivity() {
         permisos = texto("", 13f)
 
         texto("1. Búsqueda en Mercado Libre / TuCarro", 17f, true)
-        val etId = campo("App ID (de developers.mercadolibre.com.co)", store.clientId)
-        val etSecret = campo("Secret Key", store.clientSecret)
+        val etId = campo("App ID de Mercado Libre (opcional: vacío = leer TuCarro web)", store.clientId)
+        val etSecret = campo("Secret Key (opcional)", store.clientSecret)
         val etDepto = campo("Departamento", store.departamento)
         val etCiudades = campo("Ciudades (separadas por coma; vacío = todo el departamento)", store.ciudades)
         val etMin = campo("Precio mínimo", store.precioMin.toString(), true)
@@ -119,6 +119,14 @@ class MainActivity : AppCompatActivity() {
                     refrescar()
                 }
             }.start()
+        }
+
+        boton("Enviar diagnóstico a Claude") {
+            val t = TuCarro.diagnostico(applicationContext)
+            val i = Intent(Intent.ACTION_SEND)
+            i.type = "text/plain"
+            i.putExtra(Intent.EXTRA_TEXT, "Diagnóstico Monitor Carros\n" + store.ultimoEstado + "\n" + t)
+            startActivity(Intent.createChooser(i, "Enviar diagnóstico"))
         }
 
         texto("2. Permisos (actívelos todos)", 17f, true)
