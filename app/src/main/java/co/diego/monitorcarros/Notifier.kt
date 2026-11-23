@@ -26,6 +26,28 @@ object Notifier {
     }
 
     @SuppressLint("MissingPermission")
+    fun recordatorio(ctx: Context, urlTuCarro: String, urlMarket: String) {
+        crearCanal(ctx)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val tc = PendingIntent.getActivity(ctx, 501, Intent(Intent.ACTION_VIEW, Uri.parse(urlTuCarro)), flags)
+        val fb = PendingIntent.getActivity(ctx, 502, Intent(Intent.ACTION_VIEW, Uri.parse(urlMarket)), flags)
+        val n = NotificationCompat.Builder(ctx, CANAL)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("🚗 Hora de revisar publicaciones nuevas")
+            .setContentText("Toque para ver TuCarro: publicados hoy")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(tc)
+            .addAction(0, "TuCarro hoy", tc)
+            .addAction(0, "Marketplace", fb)
+            .build()
+        NotificationManagerCompat.from(ctx).notify(500, n)
+    }
+
+    @SuppressLint("MissingPermission")
     fun mostrar(
         ctx: Context,
         id: Int,

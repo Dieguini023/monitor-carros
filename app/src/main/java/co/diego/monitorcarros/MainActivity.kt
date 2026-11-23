@@ -78,10 +78,10 @@ class MainActivity : AppCompatActivity() {
         val etId = campo("App ID de Mercado Libre (opcional: vacío = leer TuCarro web)", store.clientId)
         val etSecret = campo("Secret Key (opcional)", store.clientSecret)
         val etDepto = campo("Departamento", store.departamento)
-        val etCiudades = campo("Ciudades (separadas por coma; vacío = todo el departamento)", store.ciudades)
+        val etCiudades = campo("Ciudades (separadas por coma; la primera se usa para Marketplace)", store.ciudades)
         val etMin = campo("Precio mínimo", store.precioMin.toString(), true)
         val etMax = campo("Precio máximo", store.precioMax.toString(), true)
-        val etIntervalo = campo("Revisar cada (minutos, mínimo 15)", store.intervalo.toString(), true)
+        val etIntervalo = campo("Recordarme / revisar cada (minutos, mínimo 15)", store.intervalo.toString(), true)
 
         boton("Guardar y activar monitor") {
             val nuevoDepto = etDepto.text.toString().trim().ifBlank { "Santander" }
@@ -104,7 +104,7 @@ class MainActivity : AppCompatActivity() {
             refrescar()
         }
 
-        boton("Revisar ahora") {
+        boton("Probar recordatorio ahora") {
             estado.text = "Revisando… (puede tardar un minuto)"
             Thread {
                 val r = try {
@@ -123,6 +123,10 @@ class MainActivity : AppCompatActivity() {
 
         boton("Abrir TuCarro: publicados hoy") {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.url(store, 1))))
+        }
+
+        boton("Abrir Marketplace: vehículos recientes") {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.marketplace(store))))
         }
 
         boton("Enviar diagnóstico a Claude") {

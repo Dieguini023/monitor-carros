@@ -22,6 +22,12 @@ object TuCarro {
             .replace(Regex("\\p{M}"), "")
             .replace(Regex("\\s+"), "-")
 
+    fun marketplace(store: Store): String {
+        val ciudad = store.ciudades.split(",").map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: "bucaramanga"
+        return "https://www.facebook.com/marketplace/${slug(ciudad)}/vehicles" +
+            "?minPrice=${store.precioMin}&maxPrice=${store.precioMax}&daysSinceListed=1&sortBy=creation_time_descend"
+    }
+
     fun url(store: Store, desde: Int): String {
         val pagina = if (desde > 1) "_Desde_$desde" else ""
         return "https://carros.tucarro.com.co/${slug(store.departamento)}/" +

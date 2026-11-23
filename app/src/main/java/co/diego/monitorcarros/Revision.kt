@@ -19,8 +19,13 @@ object Revision {
         val hora = SimpleDateFormat("dd/MM hh:mm a", Locale("es", "CO")).format(Date())
         val usaApi = store.clientId.isNotBlank() && store.clientSecret.isNotBlank()
         if (!usaApi) {
-            val msg = "Lectura automática de TuCarro en pausa (Mercado Libre la bloquea). " +
-                "Use el botón ABRIR TUCARRO: PUBLICADOS HOY."
+            val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            val msg = if (h in 6..21) {
+                Notifier.recordatorio(ctx, TuCarro.url(store, 1), TuCarro.marketplace(store))
+                "Recordatorio enviado (cada ${store.intervalo} min, de 6 a.m. a 10 p.m.)"
+            } else {
+                "Fuera de horario (6 a.m. – 10 p.m.): sin recordatorio"
+            }
             store.ultimoEstado = "$hora · $msg"
             return msg
         }
