@@ -15,13 +15,19 @@ import androidx.core.app.NotificationManagerCompat
 
 object Notifier {
     private const val CANAL = "carros_nuevos"
+    private const val CANAL_ESTADO = "estado_revision"
 
     fun crearCanal(ctx: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
             val c = NotificationChannel(CANAL, "Carros nuevos", NotificationManager.IMPORTANCE_HIGH)
             c.enableVibration(true)
             c.vibrationPattern = longArrayOf(0, 500, 300, 500)
-            ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(c)
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(c)
+            val e = NotificationChannel(CANAL_ESTADO, "Estado de revisión", NotificationManager.IMPORTANCE_LOW)
+            e.setSound(null, null)
+            e.enableVibration(false)
+            nm.createNotificationChannel(e)
         }
     }
 
@@ -32,6 +38,9 @@ object Notifier {
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val revisarAqui = PendingIntent.getForegroundService(
+            ctx, 504, Intent(ctx, ServicioRevision::class.java), flags,
+        )
         fun abrirApp(pestana: Int, codigo: Int, revisar: Boolean = false): PendingIntent {
             val i = Intent(ctx, MainActivity::class.java)
             i.putExtra("pestana", pestana)
@@ -42,14 +51,46 @@ object Notifier {
         val n = NotificationCompat.Builder(ctx, CANAL)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle("🚗 ¿Carros nuevos en TuCarro?")
-            .setContentText("Toque 🔍 Revisar: le muestro solo lo nuevo")
+            .setContentText("Toque 🔍 Revisar: reviso sin abrir la app y le aviso solo si hay algo nuevo")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setContentIntent(abrirApp(0, 501, true))
-            .addAction(0, "🔍 Revisar", abrirApp(0, 503, true))
-            .addAction(0, "Ver Marketplace", abrirApp(2, 502))
+            .setContentIntent(revisarAqui)
+            .addAction(0, "🔍 Revisar", revisarAqui)
+            .addAction(0, "Abrir Jerocar", abrirApp(0, 503, true))
             .build()
         NotificationManagerCompat.from(ctx).notify(500, n)
+    }
+
+    fun estado(ctx: Context, titulo: String, texto: String): android.app.Notification {
+        crearCanal(ctx)
+        return NotificationCompat.Builder(ctx, CANAL_ESTADO)
+            .setSmallIcon(R.drawable.ic_notif)
+            .setContentTitle(titulo)
+            .setContentText(texto)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
+            .build()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun resultado(ctx: Context, titulo: String, texto: String, importante: Boolean, alTocar: PendingIntent) {
+        crearCanal(ctx)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        val b = NotificationCompat.Builder(ctx, if (importante) CANAL else CANAL_ESTADO)
+            .setSmallIcon(R.drawable.ic_notif)
+            .setContentTitle(titulo)
+            .setContentText(texto)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
+            .setPriority(if (importante) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
+            .setAutoCancel(true)
+            .setContentIntent(alTocar)
+        if (!importante) {
+            b.setSilent(true)
+            b.setTimeoutAfter(90_000)
+        }
+        NotificationManagerCompat.from(ctx).notify(601, b.build())
     }
 
     @SuppressLint("MissingPermission")

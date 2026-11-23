@@ -87,6 +87,10 @@ class Store(ctx: Context) {
         p.edit().putString(clave, o.toString()).commit()
     }
 
+    var ultimosNuevos: String
+        get() = s("ultimosNuevos", "[]")
+        set(v) = put("ultimosNuevos", v)
+
     var ultimaRevision: String
         get() = s("ultimaRevision")
         set(v) = put("ultimaRevision", v)

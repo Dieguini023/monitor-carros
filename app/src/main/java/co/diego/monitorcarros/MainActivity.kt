@@ -37,6 +37,32 @@ import java.util.Locale
  * navegador interno y le muestra solo una lista de lo nuevo desde su última revisión.
  */
 class MainActivity : AppCompatActivity() {
+    companion object {
+        val JS_LISTA = """
+            (function(){
+              var out=[], seen={};
+              var as=document.querySelectorAll('a[href*="MCO"]');
+              for (var i=0;i<as.length;i++){
+                var a=as[i]; var m=a.href.match(/MCO-?(\d{6,})/); if(!m) continue;
+                var id='MCO'+m[1]; if(seen[id]) continue;
+                var card=a.closest('li')||a.closest('.poly-card')||a.parentElement;
+                var t=(a.textContent||'').trim();
+                if(t.length<4 && card){ var h=card.querySelector('h2,h3,.poly-component__title'); t=h?h.textContent.trim():''; }
+                if(t.length<4) continue;
+                var p=card?card.querySelector('.andes-money-amount__fraction'):null;
+                var img=card?card.querySelector('img'):null; var src='';
+                if(img){ src=img.getAttribute('data-src')||img.currentSrc||img.src||''; if(src.indexOf('data:')===0){ src=img.getAttribute('data-src')||''; } }
+                var at=card?Array.prototype.map.call(card.querySelectorAll('[class*="attributes"] li, [class*="attributes-list__item"], [class*="attributes_list__item"]'),function(x){return x.textContent.trim();}).filter(function(x){return x.length>0&&x.length<30;}):[];
+                var loc=card?card.querySelector('[class*="location"]'):null;
+                seen[id]=1;
+                out.push({id:id,t:t.substring(0,90),p:p?p.textContent.trim():'',u:a.href.split('#')[0],
+                          img:src,a:at.slice(0,3).join(' · '),l:loc?loc.textContent.trim():''});
+              }
+              return JSON.stringify(out);
+            })()
+    """.trimIndent()
+    }
+
     private lateinit var store: Store
     private lateinit var web: WebView
     private lateinit var banner: TextView
@@ -50,29 +76,7 @@ class MainActivity : AppCompatActivity() {
     private val reloj = Handler(Looper.getMainLooper())
     private var d = 1f
 
-    private val jsLista = """
-        (function(){
-          var out=[], seen={};
-          var as=document.querySelectorAll('a[href*="MCO"]');
-          for (var i=0;i<as.length;i++){
-            var a=as[i]; var m=a.href.match(/MCO-?(\d{6,})/); if(!m) continue;
-            var id='MCO'+m[1]; if(seen[id]) continue;
-            var card=a.closest('li')||a.closest('.poly-card')||a.parentElement;
-            var t=(a.textContent||'').trim();
-            if(t.length<4 && card){ var h=card.querySelector('h2,h3,.poly-component__title'); t=h?h.textContent.trim():''; }
-            if(t.length<4) continue;
-            var p=card?card.querySelector('.andes-money-amount__fraction'):null;
-            var img=card?card.querySelector('img'):null; var src='';
-            if(img){ src=img.getAttribute('data-src')||img.currentSrc||img.src||''; if(src.indexOf('data:')===0){ src=img.getAttribute('data-src')||''; } }
-            var at=card?Array.prototype.map.call(card.querySelectorAll('[class*="attributes"] li, [class*="attributes-list__item"], [class*="attributes_list__item"]'),function(x){return x.textContent.trim();}).filter(function(x){return x.length>0&&x.length<30;}):[];
-            var loc=card?card.querySelector('[class*="location"]'):null;
-            seen[id]=1;
-            out.push({id:id,t:t.substring(0,90),p:p?p.textContent.trim():'',u:a.href.split('#')[0],
-                      img:src,a:at.slice(0,3).join(' · '),l:loc?loc.textContent.trim():''});
-          }
-          return JSON.stringify(out);
-        })()
-    """.trimIndent()
+
 
     private fun jsResaltar(ids: List<String>): String = """
         (function(ids){
@@ -209,7 +213,11 @@ class MainActivity : AppCompatActivity() {
         })
 
         if (savedInstanceState == null) {
-            if (intent.getBooleanExtra("revisar", false)) revisar() else abrir(intent.getIntExtra("pestana", 0))
+            when {
+                intent.getBooleanExtra("mostrarNuevos", false) -> mostrarGuardados()
+                intent.getBooleanExtra("revisar", false) -> revisar()
+                else -> abrir(intent.getIntExtra("pestana", 0))
+            }
         } else {
             web.restoreState(savedInstanceState)
         }
@@ -222,7 +230,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.getBooleanExtra("revisar", false)) {
+        if (intent.getBooleanExtra("mostrarNuevos", false)) {
+            mostrarGuardados()
+        } else if (intent.getBooleanExtra("revisar", false)) {
             revisar()
         } else {
             val p = intent.getIntExtra("pestana", -1)
@@ -277,6 +287,24 @@ class MainActivity : AppCompatActivity() {
                 lista.addView(botonLista("Ver página") { panel.visibility = View.GONE })
             }
         }, 25_000)
+    }
+
+    private fun mostrarGuardados() {
+        modoRevision = false
+        pestana = 0
+        marcarPestana(0)
+        val arr = try {
+            JSONArray(store.ultimosNuevos)
+        } catch (e: Exception) {
+            JSONArray()
+        }
+        lista.removeAllViews()
+        lista.addView(texto("🆕 ${arr.length()} carro(s) nuevo(s) · revisado a las ${store.ultimaRevision}", 18f, true))
+        lista.addView(texto("Toque uno para ver la publicación completa.", 13f, false))
+        for (i in 0 until arr.length()) lista.addView(tarjeta(arr.getJSONObject(i)))
+        lista.addView(botonLista("Ver página completa de TuCarro hoy") { abrir(0) })
+        banner.visibility = View.GONE
+        panel.visibility = View.VISIBLE
     }
 
     private fun texto(t: String, tam: Float, negrita: Boolean): TextView {
@@ -369,7 +397,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun analizar() {
-        web.evaluateJavascript(jsLista) { res ->
+        web.evaluateJavascript(JS_LISTA) { res ->
             val arr = try {
                 JSONArray(JSONTokener(res).nextValue() as String)
             } catch (e: Exception) {
