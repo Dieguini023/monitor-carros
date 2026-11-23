@@ -139,7 +139,7 @@ class AjustesActivity : AppCompatActivity() {
             val t = TuCarro.diagnostico(applicationContext)
             val i = Intent(Intent.ACTION_SEND)
             i.type = "text/plain"
-            i.putExtra(Intent.EXTRA_TEXT, "Diagnóstico Monitor Carros\n" + store.ultimoEstado + "\n" + t)
+            i.putExtra(Intent.EXTRA_TEXT, "Diagnóstico Jerocar\n" + store.ultimoEstado + "\n" + t)
             startActivity(Intent.createChooser(i, "Enviar diagnóstico"))
         }
 

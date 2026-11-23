@@ -23,11 +23,11 @@ jobs:
       - name: Compilar
         run: gradle assembleDebug --no-daemon
       - name: Preparar APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk MonitorCarros.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Jerocar.apk
       - name: Publicar para descargar desde el celular
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: Monitor Carros v${{ github.run_number }}
-          files: MonitorCarros.apk
+          name: Jerocar v${{ github.run_number }}
+          files: Jerocar.apk
           make_latest: true

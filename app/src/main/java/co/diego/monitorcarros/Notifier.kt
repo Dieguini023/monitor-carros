@@ -40,7 +40,7 @@ object Notifier {
             return PendingIntent.getActivity(ctx, codigo, i, flags)
         }
         val n = NotificationCompat.Builder(ctx, CANAL)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle("🚗 ¿Carros nuevos en TuCarro?")
             .setContentText("Toque 🔍 Revisar: le muestro solo lo nuevo")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -76,7 +76,7 @@ object Notifier {
         }
 
         val n = NotificationCompat.Builder(ctx, CANAL)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle(titulo)
             .setContentText(texto)
             .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
