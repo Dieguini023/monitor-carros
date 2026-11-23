@@ -87,6 +87,10 @@ class Store(ctx: Context) {
         p.edit().putString(clave, o.toString()).commit()
     }
 
+    var ultimaRevision: String
+        get() = s("ultimaRevision")
+        set(v) = put("ultimaRevision", v)
+
     var horaInicio: Int
         get() = p.getInt("horaInicio", 6)
         set(v) {

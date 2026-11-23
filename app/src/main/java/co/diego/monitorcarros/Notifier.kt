@@ -32,19 +32,21 @@ object Notifier {
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        fun abrirApp(pestana: Int, codigo: Int): PendingIntent {
+        fun abrirApp(pestana: Int, codigo: Int, revisar: Boolean = false): PendingIntent {
             val i = Intent(ctx, MainActivity::class.java)
             i.putExtra("pestana", pestana)
+            i.putExtra("revisar", revisar)
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             return PendingIntent.getActivity(ctx, codigo, i, flags)
         }
         val n = NotificationCompat.Builder(ctx, CANAL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("🚗 ¿Carros nuevos en TuCarro?")
-            .setContentText("Toque para ver TuCarro hoy ya actualizado, con lo nuevo marcado")
+            .setContentText("Toque 🔍 Revisar: le muestro solo lo nuevo")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setContentIntent(abrirApp(0, 501))
+            .setContentIntent(abrirApp(0, 501, true))
+            .addAction(0, "🔍 Revisar", abrirApp(0, 503, true))
             .addAction(0, "Ver Marketplace", abrirApp(2, 502))
             .build()
         NotificationManagerCompat.from(ctx).notify(500, n)
