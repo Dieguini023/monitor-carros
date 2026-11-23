@@ -87,6 +87,24 @@ class Store(ctx: Context) {
         p.edit().putString(clave, o.toString()).commit()
     }
 
+    var horaInicio: Int
+        get() = p.getInt("horaInicio", 6)
+        set(v) {
+            p.edit().putInt("horaInicio", v).apply()
+        }
+
+    var horaFin: Int
+        get() = p.getInt("horaFin", 21)
+        set(v) {
+            p.edit().putInt("horaFin", v).apply()
+        }
+
+    var migrado06: Boolean
+        get() = p.getBoolean("migrado06", false)
+        set(v) {
+            p.edit().putBoolean("migrado06", v).commit()
+        }
+
     var migrado05: Boolean
         get() = p.getBoolean("migrado05", false)
         set(v) {

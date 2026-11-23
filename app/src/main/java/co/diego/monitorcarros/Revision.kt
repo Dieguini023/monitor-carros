@@ -20,11 +20,11 @@ object Revision {
         val usaApi = store.clientId.isNotBlank() && store.clientSecret.isNotBlank()
         if (!usaApi) {
             val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-            val msg = if (h in 6..21) {
-                Notifier.recordatorio(ctx, TuCarro.url(store, 1), TuCarro.marketplace(store))
-                "Recordatorio enviado (cada ${store.intervalo} min, de 6 a.m. a 10 p.m.)"
+            val msg = if (h >= store.horaInicio && h < store.horaFin) {
+                Notifier.recordatorio(ctx)
+                "Recordatorio enviado (cada ${store.intervalo} min, de ${store.horaInicio}:00 a ${store.horaFin}:00)"
             } else {
-                "Fuera de horario (6 a.m. – 10 p.m.): sin recordatorio"
+                "Fuera de horario (${store.horaInicio}:00 – ${store.horaFin}:00): sin recordatorio"
             }
             store.ultimoEstado = "$hora · $msg"
             return msg
@@ -80,6 +80,22 @@ object Revision {
         val msg = "$fuente: ${carros.size} carros hoy, ${filtrados.size} nuevos"
         store.ultimoEstado = "$hora · $msg"
         return msg
+    }
+}
+
+/** Programa (o apaga) la tarea periódica según Ajustes. */
+object Programador {
+    fun programar(ctx: Context) {
+        val store = Store(ctx)
+        val wm = androidx.work.WorkManager.getInstance(ctx)
+        if (store.intervalo <= 0) {
+            wm.cancelUniqueWork("monitor")
+            return
+        }
+        val req = androidx.work.PeriodicWorkRequestBuilder<MonitorWorker>(
+            store.intervalo.toLong(), java.util.concurrent.TimeUnit.MINUTES,
+        ).build()
+        wm.enqueueUniquePeriodicWork("monitor", androidx.work.ExistingPeriodicWorkPolicy.UPDATE, req)
     }
 }
 

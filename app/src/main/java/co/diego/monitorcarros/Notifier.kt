@@ -26,23 +26,26 @@ object Notifier {
     }
 
     @SuppressLint("MissingPermission")
-    fun recordatorio(ctx: Context, urlTuCarro: String, urlMarket: String) {
+    fun recordatorio(ctx: Context) {
         crearCanal(ctx)
         if (Build.VERSION.SDK_INT >= 33 &&
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        val tc = PendingIntent.getActivity(ctx, 501, Intent(Intent.ACTION_VIEW, Uri.parse(urlTuCarro)), flags)
-        val fb = PendingIntent.getActivity(ctx, 502, Intent(Intent.ACTION_VIEW, Uri.parse(urlMarket)), flags)
+        fun abrirApp(pestana: Int, codigo: Int): PendingIntent {
+            val i = Intent(ctx, MainActivity::class.java)
+            i.putExtra("pestana", pestana)
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            return PendingIntent.getActivity(ctx, codigo, i, flags)
+        }
         val n = NotificationCompat.Builder(ctx, CANAL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("🚗 Hora de revisar publicaciones nuevas")
-            .setContentText("Toque para ver TuCarro: publicados hoy")
+            .setContentTitle("🚗 ¿Carros nuevos en TuCarro?")
+            .setContentText("Toque para ver TuCarro hoy ya actualizado, con lo nuevo marcado")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setContentIntent(tc)
-            .addAction(0, "TuCarro hoy", tc)
-            .addAction(0, "Marketplace", fb)
+            .setContentIntent(abrirApp(0, 501))
+            .addAction(0, "Ver Marketplace", abrirApp(2, 502))
             .build()
         NotificationManagerCompat.from(ctx).notify(500, n)
     }

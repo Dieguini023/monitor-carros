@@ -83,7 +83,12 @@ class AjustesActivity : AppCompatActivity() {
         val etMax = campo("Precio máximo", store.precioMax.toString(), true)
         val etIntervalo = campo("Recordatorio / revisión automática cada (minutos; 0 = apagado)", store.intervalo.toString(), true)
 
+        val etDesde = campo("Recordatorio desde la hora (0-23)", store.horaInicio.toString(), true)
+        val etHasta = campo("Recordatorio hasta la hora (1-24)", store.horaFin.toString(), true)
+
         boton("Guardar") {
+            store.horaInicio = (etDesde.text.toString().toIntOrNull() ?: 6).coerceIn(0, 23)
+            store.horaFin = (etHasta.text.toString().toIntOrNull() ?: 21).coerceIn(1, 24)
             val nuevoDepto = etDepto.text.toString().trim().ifBlank { "Santander" }
             val nuevoMin = etMin.text.toString().toLongOrNull() ?: 30_000_000L
             val nuevoMax = etMax.text.toString().toLongOrNull() ?: 90_000_000L
@@ -180,15 +185,7 @@ class AjustesActivity : AppCompatActivity() {
     }
 
     private fun programar() {
-        if (store.intervalo <= 0) {
-            WorkManager.getInstance(this).cancelUniqueWork("monitor")
-            return
-        }
-        val req = PeriodicWorkRequestBuilder<MonitorWorker>(store.intervalo.toLong(), TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork("monitor", ExistingPeriodicWorkPolicy.UPDATE, req)
+        Programador.programar(this)
     }
 
     private fun si(b: Boolean) = if (b) "✅" else "❌"

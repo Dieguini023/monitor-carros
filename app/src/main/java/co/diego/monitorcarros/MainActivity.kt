@@ -85,6 +85,12 @@ class MainActivity : AppCompatActivity() {
             WorkManager.getInstance(this).cancelUniqueWork("monitor")
             store.migrado05 = true
         }
+        // v0.6: recordatorio cada 30 min que abre esta pantalla ya actualizada
+        if (!store.migrado06) {
+            store.intervalo = 30
+            Programador.programar(this)
+            store.migrado06 = true
+        }
 
         val d = resources.displayMetrics.density
         val root = LinearLayout(this)
@@ -171,7 +177,13 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        if (savedInstanceState == null) abrir(0) else web.restoreState(savedInstanceState)
+        if (savedInstanceState == null) abrir(intent.getIntExtra("pestana", 0)) else web.restoreState(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val p = intent.getIntExtra("pestana", -1)
+        if (p >= 0) abrir(p)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
