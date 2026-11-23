@@ -18,7 +18,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -130,9 +129,6 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Ya están permitidas en esta versión de Android", Toast.LENGTH_SHORT).show()
             }
         }
-        boton("Leer alertas de Facebook / Mercado Libre / TuCarro") {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
         boton("Que Android no la apague (batería)") {
             try {
                 startActivity(
@@ -180,9 +176,8 @@ class MainActivity : AppCompatActivity() {
         estado.text = "Última revisión: " + store.ultimoEstado.ifBlank { "todavía ninguna" }
         val notif = Build.VERSION.SDK_INT < 33 ||
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        val lector = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         val bateria = (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName)
-        permisos.text = "Notificaciones ${si(notif)}   Leer alertas ${si(lector)}   Batería ${si(bateria)}"
+        permisos.text = "Notificaciones ${si(notif)}   Batería ${si(bateria)}"
         historial.text = store.historial().joinToString("\n\n").ifBlank { "Sin avisos todavía." }
     }
 }
