@@ -135,16 +135,17 @@ class MainActivity : AppCompatActivity() {
 
         val fila2 = LinearLayout(this)
         fila2.orientation = LinearLayout.HORIZONTAL
-        boton("◀ Atrás", fila2) {
+        boton("◀", fila2) {
             if (panel.visibility == View.VISIBLE) {
                 panel.visibility = View.GONE
             } else if (web.canGoBack()) {
                 web.goBack()
             }
         }
+        boton("📋 Detectados", fila2) { mostrarDetectados(0) }
         val bRevisar = boton("🔍 Revisar", fila2) { revisar() }
         bRevisar.setTypeface(null, Typeface.BOLD)
-        boton("⚙ Ajustes", fila2) { startActivity(Intent(this, AjustesActivity::class.java)) }
+        boton("⚙", fila2) { startActivity(Intent(this, AjustesActivity::class.java)) }
         root.addView(fila2)
 
         banner = TextView(this)
@@ -289,6 +290,36 @@ class MainActivity : AppCompatActivity() {
         }, 25_000)
     }
 
+    private fun precioNum(o: JSONObject): Long =
+        o.optString("p").replace(".", "").replace(",", "").trim().toLongOrNull() ?: Long.MAX_VALUE
+
+    /** orden: 0 = más recientes, 1 = menor precio, 2 = mayor precio */
+    private fun mostrarDetectados(orden: Int) {
+        modoRevision = false
+        val todas = store.fichas()
+        val ordenadas = when (orden) {
+            1 -> todas.sortedBy { precioNum(it) }
+            2 -> todas.sortedByDescending { if (precioNum(it) == Long.MAX_VALUE) -1L else precioNum(it) }
+            else -> todas.sortedByDescending { it.optLong("d") }
+        }
+        lista.removeAllViews()
+        lista.addView(texto("📋 Carros detectados por Jerocar (${todas.size})", 18f, true))
+        val filaOrden = LinearLayout(this)
+        filaOrden.orientation = LinearLayout.HORIZONTAL
+        listOf("Recientes", "Menor precio", "Mayor precio").forEachIndexed { i, t ->
+            val b = boton(t, filaOrden) { mostrarDetectados(i) }
+            if (i == orden) b.setTypeface(null, Typeface.BOLD)
+        }
+        lista.addView(filaOrden)
+        if (todas.isEmpty()) {
+            lista.addView(texto("Todavía no hay carros guardados. Toque 🔍 Revisar o abra TuCarro hoy.", 15f, false))
+        }
+        ordenadas.take(150).forEach { lista.addView(tarjeta(it)) }
+        banner.visibility = View.GONE
+        panel.scrollTo(0, 0)
+        panel.visibility = View.VISIBLE
+    }
+
     private fun mostrarGuardados() {
         modoRevision = false
         pestana = 0
@@ -366,7 +397,8 @@ class MainActivity : AppCompatActivity() {
             p.setTypeface(null, Typeface.BOLD)
             col.addView(p)
         }
-        val extra = listOf(o.optString("a"), o.optString("l")).filter { it.isNotBlank() }.joinToString("\n")
+        val det = if (o.has("d")) "Detectado: " + SimpleDateFormat("dd/MM hh:mm a", Locale("es", "CO")).format(Date(o.optLong("d"))) else ""
+        val extra = listOf(o.optString("a"), o.optString("l"), det).filter { it.isNotBlank() }.joinToString("\n")
         if (extra.isNotBlank()) {
             val e = TextView(this)
             e.text = extra
@@ -427,6 +459,7 @@ class MainActivity : AppCompatActivity() {
                 if (!vistos.containsKey(id)) vistos[id] = ahora
             }
             store.guardarVistos(vistos, clave())
+            store.registrarFichas(arr)
             if (pestana == 0) store.ultimaRevision = hora
 
             val desde = if (anterior.isNotBlank()) " desde las $anterior" else ""

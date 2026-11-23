@@ -137,6 +137,7 @@ class ServicioRevision : Service() {
             if (!vistos.containsKey(id)) vistos[id] = ahora
         }
         store.guardarVistos(vistos, "vistosWeb0")
+        store.registrarFichas(arr)
         store.ultimaRevision = hora
         val desde = if (anterior.isNotBlank()) " desde las $anterior" else ""
 

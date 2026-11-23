@@ -87,6 +87,45 @@ class Store(ctx: Context) {
         p.edit().putString(clave, o.toString()).commit()
     }
 
+    /** Guarda los datos de cada carro la primera vez que se ve (con la hora de detección "d"). */
+    @Synchronized
+    fun registrarFichas(arr: JSONArray) {
+        val todas = try {
+            JSONObject(s("fichas", "{}"))
+        } catch (e: Exception) {
+            JSONObject()
+        }
+        val ahora = System.currentTimeMillis()
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val id = o.optString("id")
+            if (id.isBlank() || todas.has(id)) continue
+            val f = JSONObject(o.toString())
+            f.put("d", ahora)
+            todas.put(id, f)
+        }
+        // conservar las 400 más recientes
+        val lista = mutableListOf<JSONObject>()
+        val it = todas.keys()
+        while (it.hasNext()) lista.add(todas.getJSONObject(it.next()))
+        lista.sortByDescending { it.optLong("d") }
+        val final = JSONObject()
+        lista.take(400).forEach { final.put(it.optString("id"), it) }
+        p.edit().putString("fichas", final.toString()).commit()
+    }
+
+    fun fichas(): List<JSONObject> {
+        val todas = try {
+            JSONObject(s("fichas", "{}"))
+        } catch (e: Exception) {
+            JSONObject()
+        }
+        val lista = mutableListOf<JSONObject>()
+        val it = todas.keys()
+        while (it.hasNext()) lista.add(todas.getJSONObject(it.next()))
+        return lista
+    }
+
     var ultimosNuevos: String
         get() = s("ultimosNuevos", "[]")
         set(v) = put("ultimosNuevos", v)
