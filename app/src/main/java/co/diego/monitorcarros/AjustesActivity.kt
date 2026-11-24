@@ -34,29 +34,26 @@ class AjustesActivity : AppCompatActivity() {
     private var d = 1f
 
     private fun texto(t: String, tam: Float = 15f, negrita: Boolean = false): TextView {
-        val v = TextView(this)
-        v.text = t
-        v.textSize = tam
-        if (negrita) v.setTypeface(v.typeface, Typeface.BOLD)
-        v.setPadding(0, (12 * d).toInt(), 0, (4 * d).toInt())
+        val titulo = tam >= 17f
+        val v = Estilo.texto(this, t, tam, if (titulo || negrita) Estilo.TEXTO else Estilo.GRIS, negrita)
+        v.setPadding(0, ((if (titulo) 20 else 10) * d).toInt(), 0, (6 * d).toInt())
         col.addView(v)
         return v
     }
 
     private fun campo(etiqueta: String, valor: String, numero: Boolean = false): EditText {
         texto(etiqueta, 13f)
-        val e = EditText(this)
-        e.setText(valor)
-        e.inputType = if (numero) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
-        col.addView(e)
+        val e = Estilo.campo(this, valor, numero)
+        col.addView(e, LinearLayout.LayoutParams(-1, -2))
         return e
     }
 
     private fun boton(t: String, accion: () -> Unit): Button {
-        val b = Button(this)
-        b.text = t
-        b.setOnClickListener { accion() }
-        col.addView(b)
+        val principal = t == "Guardar"
+        val b = Estilo.boton(this, t, principal, accion)
+        val p = LinearLayout.LayoutParams(-1, -2)
+        p.setMargins(0, (6 * d).toInt(), 0, (6 * d).toInt())
+        col.addView(b, p)
         return b
     }
 
@@ -65,16 +62,20 @@ class AjustesActivity : AppCompatActivity() {
         store = Store(this)
         Notifier.crearCanal(this)
         d = resources.displayMetrics.density
+        window.statusBarColor = Estilo.FONDO
+        window.navigationBarColor = Estilo.FONDO
         col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
+        col.setBackgroundColor(Estilo.FONDO)
         val pad = (16 * d).toInt()
         col.setPadding(pad, pad, pad, pad)
 
-        texto("Ajustes", 22f, true)
+        val atras = texto("‹  Ajustes", 24f, true)
+        atras.setOnClickListener { finish() }
         estado = texto("", 14f)
         permisos = texto("", 13f)
 
-        texto("1. Búsqueda en Mercado Libre / TuCarro", 17f, true)
+        texto("Zona y precio", 17f, true)
         val etId = campo("App ID de Mercado Libre (opcional: vacío = leer TuCarro web)", store.clientId)
         val etSecret = campo("Secret Key (opcional)", store.clientSecret)
         val etDepto = campo("Departamento", store.departamento)
@@ -127,14 +128,6 @@ class AjustesActivity : AppCompatActivity() {
             }.start()
         }
 
-        boton("Abrir TuCarro: publicados hoy") {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.url(store, 1))))
-        }
-
-        boton("Abrir Marketplace: vehículos recientes") {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TuCarro.marketplace(store))))
-        }
-
         boton("Enviar diagnóstico a Claude") {
             val t = TuCarro.diagnostico(applicationContext)
             val i = Intent(Intent.ACTION_SEND)
@@ -143,7 +136,7 @@ class AjustesActivity : AppCompatActivity() {
             startActivity(Intent.createChooser(i, "Enviar diagnóstico"))
         }
 
-        texto("2. Permisos (actívelos todos)", 17f, true)
+        texto("Permisos", 17f, true)
         boton("Permitir notificaciones") {
             if (Build.VERSION.SDK_INT >= 33) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
@@ -161,7 +154,7 @@ class AjustesActivity : AppCompatActivity() {
             }
         }
 
-        texto("3. Últimos avisos", 17f, true)
+        texto("Historial de avisos", 17f, true)
         boton("Borrar historial") {
             store.borrarHistorial()
             refrescar()
@@ -170,6 +163,8 @@ class AjustesActivity : AppCompatActivity() {
         historial.autoLinkMask = Linkify.WEB_URLS
 
         val scroll = ScrollView(this)
+        scroll.setBackgroundColor(Estilo.FONDO)
+        scroll.isFillViewport = true
         scroll.addView(col)
         setContentView(scroll)
     }
