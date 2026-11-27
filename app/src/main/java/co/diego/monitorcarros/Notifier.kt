@@ -41,22 +41,23 @@ object Notifier {
         val revisarAqui = PendingIntent.getForegroundService(
             ctx, 504, Intent(ctx, ServicioRevision::class.java), flags,
         )
-        fun abrirApp(pestana: Int, codigo: Int, revisar: Boolean = false): PendingIntent {
+        fun abrirApp(pestana: Int, codigo: Int, revisar: Boolean = false, seleccion: Boolean = false): PendingIntent {
             val i = Intent(ctx, MainActivity::class.java)
             i.putExtra("pestana", pestana)
             i.putExtra("revisar", revisar)
+            i.putExtra("seleccion", seleccion)
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             return PendingIntent.getActivity(ctx, codigo, i, flags)
         }
         val n = NotificationCompat.Builder(ctx, CANAL)
             .setSmallIcon(R.drawable.ic_notif)
-            .setContentTitle("🚗 ¿Carros nuevos en TuCarro?")
-            .setContentText("Toque 🔍 Revisar: reviso sin abrir la app y le aviso solo si hay algo nuevo")
+            .setContentTitle("🚗 Jerocar · hora de revisar")
+            .setContentText("🔍 TuCarro: reviso sin abrir la app · 🛒 Marketplace: marque los que le interesen")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(revisarAqui)
-            .addAction(0, "🔍 Revisar", revisarAqui)
-            .addAction(0, "Abrir Jerocar", abrirApp(0, 503, true))
+            .addAction(0, "🔍 Revisar TuCarro", revisarAqui)
+            .addAction(0, "🛒 Marketplace hoy", abrirApp(2, 505, false, true))
             .build()
         NotificationManagerCompat.from(ctx).notify(500, n)
     }

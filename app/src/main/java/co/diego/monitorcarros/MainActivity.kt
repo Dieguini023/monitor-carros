@@ -246,6 +246,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         when {
+            intent.getBooleanExtra("seleccion", false) -> marketplaceSeleccion()
             intent.getBooleanExtra("mostrarNuevos", false) -> mostrarGuardados()
             intent.getBooleanExtra("revisar", false) -> revisar()
             intent.hasExtra("pestana") && intent.getIntExtra("pestana", -1) >= 0 -> abrir(intent.getIntExtra("pestana", 0))
@@ -261,6 +262,7 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         when {
+            intent.getBooleanExtra("seleccion", false) -> marketplaceSeleccion()
             intent.getBooleanExtra("mostrarNuevos", false) -> mostrarGuardados()
             intent.getBooleanExtra("revisar", false) -> revisar()
             intent.getIntExtra("pestana", -1) >= 0 -> abrir(intent.getIntExtra("pestana", 0))
@@ -545,6 +547,14 @@ class MainActivity : AppCompatActivity() {
           return JSON.stringify(out);
         })()
     """.trimIndent()
+
+    /** Desde la notificación: Marketplace de hoy con "Seleccionar varios" ya activo. */
+    private fun marketplaceSeleccion() {
+        diasMarket = 1
+        modoSeleccion = true
+        abrir(2)
+        android.widget.Toast.makeText(this, "Marque los carros que le interesan y toque “⭐ Guardar seleccionados”", android.widget.Toast.LENGTH_LONG).show()
+    }
 
     private fun activarSeleccion(si: Boolean) {
         modoSeleccion = si
