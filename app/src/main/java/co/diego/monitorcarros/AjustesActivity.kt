@@ -84,10 +84,14 @@ class AjustesActivity : AppCompatActivity() {
         val etMax = campo("Precio máximo", store.precioMax.toString(), true)
         val etIntervalo = campo("Recordatorio / revisión automática cada (minutos; 0 = apagado)", store.intervalo.toString(), true)
 
+        val etPlantilla = campo("Mensaje para vendedores ({saludo}, {carro}, {fuente}, {precio} se llenan solos)", store.plantilla)
+        etPlantilla.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        etPlantilla.minLines = 4
         val etDesde = campo("Recordatorio desde la hora (0-23)", store.horaInicio.toString(), true)
         val etHasta = campo("Recordatorio hasta la hora (1-24)", store.horaFin.toString(), true)
 
         boton("Guardar") {
+            store.plantilla = etPlantilla.text.toString().trim().ifBlank { Mensajes.PLANTILLA }
             store.horaInicio = (etDesde.text.toString().toIntOrNull() ?: 6).coerceIn(0, 23)
             store.horaFin = (etHasta.text.toString().toIntOrNull() ?: 21).coerceIn(1, 24)
             val nuevoDepto = etDepto.text.toString().trim().ifBlank { "Santander" }

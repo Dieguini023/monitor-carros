@@ -152,6 +152,10 @@ class Store(ctx: Context) {
         return lista
     }
 
+    var plantilla: String
+        get() = s("plantilla", Mensajes.PLANTILLA)
+        set(v) = put("plantilla", v)
+
     var ultimosNuevos: String
         get() = s("ultimosNuevos", "[]")
         set(v) = put("ultimosNuevos", v)

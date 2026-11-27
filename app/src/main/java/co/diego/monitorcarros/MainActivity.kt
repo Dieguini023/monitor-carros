@@ -995,6 +995,20 @@ class MainActivity : AppCompatActivity() {
         card.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
 
         val u = o.optString("u")
+        val abrirEsta = {
+            modoRevision = false
+            pestana = 0
+            tituloWeb.text = if (u.contains("facebook.com")) "Marketplace" else "Publicación"
+            segmento.visibility = View.GONE
+            banner.visibility = View.GONE
+            ponerVista(V_WEB, 2)
+            web.loadUrl(u)
+        }
+        val escribir = Estilo.texto(this, "💬  Escribir al vendedor", 12.5f, Estilo.CIAN, true)
+        escribir.setPadding(d(10f), d(6f), d(10f), d(6f))
+        escribir.background = Estilo.fondo(Estilo.TARJETA2, 10f, this, Estilo.BORDE)
+        escribir.setOnClickListener { Mensajes.dialogo(this, store.plantilla, o) { abrirEsta() } }
+        col.addView(escribir, LinearLayout.LayoutParams(-2, -2).also { it.topMargin = d(8f) })
         card.setOnClickListener {
             modoRevision = false
             pestana = 0
