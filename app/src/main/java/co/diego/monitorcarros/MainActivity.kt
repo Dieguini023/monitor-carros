@@ -351,10 +351,6 @@ class MainActivity : AppCompatActivity() {
                 p.setMargins(0, 0, d(8f), 0)
                 segmento.addView(c, p)
             }
-            val sel = Estilo.chip(this, if (modoSeleccion) "☑ Seleccionando" else "☐ Seleccionar varios", modoSeleccion) {
-                activarSeleccion(!modoSeleccion)
-            }
-            segmento.addView(sel, LinearLayout.LayoutParams(-2, -2))
             return
         }
         segmento.visibility = View.VISIBLE
@@ -624,7 +620,7 @@ class MainActivity : AppCompatActivity() {
                 botonGuardar.visibility = View.VISIBLE
             }
             esFb && url.contains("/marketplace/item/") -> {
-                botonGuardar.text = "⭐ Guardar en Detectados"
+                botonGuardar.text = "⭐ Guardar y volver"
                 botonGuardar.visibility = View.VISIBLE
             }
             else -> botonGuardar.visibility = View.GONE
@@ -744,6 +740,7 @@ class MainActivity : AppCompatActivity() {
                 store.registrarFichas(JSONArray().put(ficha))
                 android.widget.Toast.makeText(this, "⭐ Guardado en Detectados", android.widget.Toast.LENGTH_SHORT).show()
             }
+            if (web.canGoBack()) web.goBack()
         }
     }
 

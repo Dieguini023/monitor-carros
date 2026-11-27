@@ -52,7 +52,7 @@ object Notifier {
         val n = NotificationCompat.Builder(ctx, CANAL)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle("🚗 Jerocar · hora de revisar")
-            .setContentText("🔍 TuCarro: reviso sin abrir la app · 🛒 Marketplace: marque los que le interesen")
+            .setContentText("🔍 TuCarro: reviso sin abrir la app · 🛒 Marketplace: abra y guarde los que le interesen")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(revisarAqui)
