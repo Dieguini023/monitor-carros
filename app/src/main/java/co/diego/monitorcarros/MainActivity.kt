@@ -598,13 +598,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Desde la notificación: Marketplace de hoy con "Seleccionar varios" ya activo. */
+    private fun marketplaceSeleccion() {
+        diasMarket = 1
+        modoSeleccion = true
+        abrir(2)
+        android.widget.Toast.makeText(this, "Toque los carros que le interesan y luego “⭐ Guardar seleccionados”", android.widget.Toast.LENGTH_LONG).show()
+    }
+
     private fun activarSeleccion(si: Boolean) {
         modoSeleccion = si
         web.evaluateJavascript(if (si) jsSelOn else jsSelOff, null)
         pintarSegmento()
         actualizarBoton(web.url.orEmpty())
         if (si) {
-            android.widget.Toast.makeText(this, "Toque los carros que le interesan y luego “Guardar seleccionados”", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, "Toque (un toque corto) los carros que le interesan y luego “⭐ Guardar seleccionados”", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
