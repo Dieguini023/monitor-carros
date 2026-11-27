@@ -58,9 +58,13 @@ class MainActivity : AppCompatActivity() {
                 if(img){ src=img.getAttribute('data-src')||img.currentSrc||img.src||''; if(src.indexOf('data:')===0){ src=img.getAttribute('data-src')||''; } }
                 var at=card?Array.prototype.map.call(card.querySelectorAll('[class*="attributes"] li, [class*="attributes-list__item"], [class*="attributes_list__item"]'),function(x){return x.textContent.trim();}).filter(function(x){return x.length>0&&x.length<30;}):[];
                 var loc=card?card.querySelector('[class*="location"]'):null;
+                var sel=card?card.querySelector('[class*="seller"], [class*="official-store"], [class*="store-name"]'):null;
+                var st=sel?sel.textContent.replace(/^\s*(por|by)\s+/i,'').trim():'';
+                if(st.length>40) st=st.substring(0,40);
+                var f=location.hostname.indexOf('tucarro')>=0?'TuCarro':'Mercado Libre';
                 seen[id]=1;
                 out.push({id:id,t:t.substring(0,90),p:p?p.textContent.trim():'',u:a.href.split('#')[0],
-                          img:src,a:at.slice(0,3).join(' · '),l:loc?loc.textContent.trim():''});
+                          img:src,a:at.slice(0,3).join(' · '),l:loc?loc.textContent.trim():'',s:st,f:f});
               }
               return JSON.stringify(out);
             })()
@@ -589,12 +593,26 @@ class MainActivity : AppCompatActivity() {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.setPadding(d(12f), 0, 0, 0)
-        if (nuevo) {
-            val b = Estilo.texto(this, "NUEVO", 10f, Color.WHITE, true)
-            b.setPadding(d(8f), d(2f), d(8f), d(2f))
-            b.background = Estilo.fondo(Estilo.NARANJA, 8f, this)
-            col.addView(b, LinearLayout.LayoutParams(-2, -2))
+        val etiquetas = LinearLayout(this)
+        etiquetas.orientation = LinearLayout.HORIZONTAL
+        fun etiqueta(t: String, fondo: Int, color: Int) {
+            val b = Estilo.texto(this, t, 10f, color, true)
+            b.setPadding(d(7f), d(2f), d(7f), d(2f))
+            b.background = Estilo.fondo(fondo, 7f, this)
+            b.maxLines = 1
+            val p = LinearLayout.LayoutParams(-2, -2)
+            p.setMargins(0, 0, d(5f), d(4f))
+            etiquetas.addView(b, p)
         }
+        if (nuevo) etiqueta("NUEVO", Estilo.NARANJA, Color.WHITE)
+        etiqueta(o.optString("f").ifBlank { "TuCarro" }, Color.parseColor("#FFE600"), Color.parseColor("#1A1A1A"))
+        val vendedor = o.optString("s")
+        if (vendedor.isNotBlank()) {
+            etiqueta("🏪 $vendedor", Estilo.TARJETA2, Estilo.GRIS)
+        } else if (o.has("s")) {
+            etiqueta("👤 Particular", Color.parseColor("#123B2C"), Estilo.VERDE)
+        }
+        col.addView(etiquetas)
         val t = Estilo.texto(this, o.optString("t"), 15f, Estilo.TEXTO, true)
         t.maxLines = 2
         col.addView(t)

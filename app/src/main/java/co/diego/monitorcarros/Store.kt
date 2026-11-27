@@ -99,7 +99,14 @@ class Store(ctx: Context) {
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
             val id = o.optString("id")
-            if (id.isBlank() || todas.has(id)) continue
+            if (id.isBlank()) continue
+            if (todas.has(id)) {
+                // completar datos nuevos (fuente/vendedor) sin cambiar la hora de detección
+                val ex = todas.getJSONObject(id)
+                if (!ex.has("s") && o.has("s")) ex.put("s", o.optString("s"))
+                if (!ex.has("f") && o.has("f")) ex.put("f", o.optString("f"))
+                continue
+            }
             val f = JSONObject(o.toString())
             f.put("d", ahora)
             todas.put(id, f)

@@ -25,7 +25,7 @@ object TuCarro {
     fun marketplace(store: Store): String {
         val ciudad = store.ciudades.split(",").map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: "bucaramanga"
         return "https://www.facebook.com/marketplace/${slug(ciudad)}/vehicles" +
-            "?minPrice=${store.precioMin}&maxPrice=${store.precioMax}&daysSinceListed=1&sortBy=creation_time_descend"
+            "?minPrice=${store.precioMin}&maxPrice=${store.precioMax}&sortBy=creation_time_descend&exact=false"
     }
 
     fun urlTodos(store: Store): String =
