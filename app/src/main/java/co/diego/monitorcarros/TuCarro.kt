@@ -22,6 +22,12 @@ object TuCarro {
             .replace(Regex("\\p{M}"), "")
             .replace(Regex("\\s+"), "-")
 
+    /** dias: 0 = todo, 1 = hoy, 7 = última semana */
+    fun marketplace(store: Store, dias: Int): String {
+        val base = marketplace(store)
+        return if (dias > 0) "$base&daysSinceListed=$dias" else base
+    }
+
     fun marketplace(store: Store): String {
         val ciudad = store.ciudades.split(",").map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: "bucaramanga"
         return "https://www.facebook.com/marketplace/${slug(ciudad)}/vehicles" +

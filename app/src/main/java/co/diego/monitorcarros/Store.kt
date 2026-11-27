@@ -111,14 +111,33 @@ class Store(ctx: Context) {
             f.put("d", ahora)
             todas.put(id, f)
         }
-        // conservar las 400 más recientes
+        // conservar las 400 más recientes y borrar las de más de 30 días
+        val limite = ahora - 30L * 24 * 3600 * 1000
         val lista = mutableListOf<JSONObject>()
         val it = todas.keys()
         while (it.hasNext()) lista.add(todas.getJSONObject(it.next()))
+        lista.removeAll { it.optLong("d") < limite }
         lista.sortByDescending { it.optLong("d") }
         val final = JSONObject()
         lista.take(400).forEach { final.put(it.optString("id"), it) }
         p.edit().putString("fichas", final.toString()).commit()
+    }
+
+    fun existeFicha(id: String): Boolean = try {
+        JSONObject(s("fichas", "{}")).has(id)
+    } catch (e: Exception) {
+        false
+    }
+
+    @Synchronized
+    fun quitarFicha(id: String) {
+        val todas = try {
+            JSONObject(s("fichas", "{}"))
+        } catch (e: Exception) {
+            return
+        }
+        todas.remove(id)
+        p.edit().putString("fichas", todas.toString()).commit()
     }
 
     fun fichas(): List<JSONObject> {

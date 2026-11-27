@@ -51,8 +51,13 @@ class CompartirActivity : Activity() {
             ?.replace(Regex("[\\s,]"), ".").orEmpty()
         val titulo = listOf(asunto, texto.replace(url, "")).firstOrNull { it.isNotBlank() }.orEmpty()
         val limpio = if (fbId != null) "https://www.facebook.com/marketplace/item/$fbId/" else url
-        Store(this).registrarFichas(JSONArray().put(Compartidos.ficha(id, titulo, precio, limpio, "", "")))
-        Toast.makeText(this, "⭐ Guardado en Jerocar › Detectados", Toast.LENGTH_SHORT).show()
+        val store = Store(this)
+        if (store.existeFicha(id)) {
+            Toast.makeText(this, "Ya estaba en Jerocar › Detectados", Toast.LENGTH_SHORT).show()
+        } else {
+            store.registrarFichas(JSONArray().put(Compartidos.ficha(id, titulo, precio, limpio, "", "")))
+            Toast.makeText(this, "⭐ Guardado en Jerocar › Detectados", Toast.LENGTH_SHORT).show()
+        }
         finish()
     }
 }

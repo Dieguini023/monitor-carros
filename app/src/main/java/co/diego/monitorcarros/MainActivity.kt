@@ -179,6 +179,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                revisarFinalizada(url)
                 botonGuardar.visibility = if (url.contains("facebook.com") && url.contains("/marketplace/item/")) View.VISIBLE else View.GONE
                 if (url.contains("carros.tucarro.com.co") || url.contains("carros.mercadolibre.com.co")) {
                     handler.removeCallbacksAndMessages(null)
@@ -337,7 +338,13 @@ class MainActivity : AppCompatActivity() {
     private fun pintarSegmento() {
         segmento.removeAllViews()
         if (pestana == 2) {
-            segmento.visibility = View.GONE
+            segmento.visibility = View.VISIBLE
+            listOf("Hoy" to 1, "7 días" to 7, "Todo" to 0).forEach { (t, dias) ->
+                val c = Estilo.chip(this, t, diasMarket == dias) { diasMarket = dias; abrir(2) }
+                val p = LinearLayout.LayoutParams(-2, -2)
+                p.setMargins(0, 0, d(8f), 0)
+                segmento.addView(c, p)
+            }
             return
         }
         segmento.visibility = View.VISIBLE
@@ -479,8 +486,10 @@ class MainActivity : AppCompatActivity() {
     private fun url(i: Int): String = when (i) {
         0 -> TuCarro.url(store, 1)
         1 -> TuCarro.urlTodos(store)
-        else -> TuCarro.marketplace(store)
+        else -> TuCarro.marketplace(store, diasMarket)
     }
+
+    private var diasMarket = 1
 
     private fun clave(): String = "vistosWeb$pestana"
 
@@ -511,6 +520,32 @@ class MainActivity : AppCompatActivity() {
         })()
     """.trimIndent()
 
+    private fun idDeUrl(url: String): String? {
+        Regex("/marketplace/item/(\\d+)").find(url)?.let { return "FB" + it.groupValues[1] }
+        Regex("MCO-?(\\d{6,})").find(url)?.let { return "MCO" + it.groupValues[1] }
+        return null
+    }
+
+    /** Si la publicación abierta ya no está disponible, se quita de Detectados. */
+    private fun revisarFinalizada(url: String) {
+        val id = idDeUrl(url) ?: return
+        if (url.contains("carros.tucarro.com.co") || !store.existeFicha(id)) return
+        handler.postDelayed({
+            web.evaluateJavascript(
+                "(function(){var t=(document.body?document.body.innerText:'').toLowerCase();" +
+                    "var k=['publicación finalizada','publicacion finalizada','publicación pausada','publicacion pausada'," +
+                    "'esta publicación ya no está disponible','ya no está disponible','this listing is no longer available'];" +
+                    "for(var i=0;i<k.length;i++){if(t.indexOf(k[i])>=0)return k[i];}return '';})()",
+            ) { r ->
+                val motivo = r?.trim('"').orEmpty()
+                if (motivo.isNotBlank() && web.url.orEmpty() == url) {
+                    store.quitarFicha(id)
+                    android.widget.Toast.makeText(this, "Ya no está publicado: lo quité de Detectados", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }, 2500)
+    }
+
     private fun guardarMarketplace() {
         val actual = web.url.orEmpty()
         val m = Regex("/marketplace/item/(\\d+)").find(actual)
@@ -529,8 +564,12 @@ class MainActivity : AppCompatActivity() {
                 o.optString("t"), o.optString("p"), "https://www.facebook.com/marketplace/item/${m.groupValues[1]}/",
                 o.optString("img"), o.optString("dsc"),
             )
-            store.registrarFichas(JSONArray().put(ficha))
-            android.widget.Toast.makeText(this, "⭐ Guardado en Detectados", android.widget.Toast.LENGTH_SHORT).show()
+            if (store.existeFicha(ficha.optString("id"))) {
+                android.widget.Toast.makeText(this, "Ya estaba en Detectados", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                store.registrarFichas(JSONArray().put(ficha))
+                android.widget.Toast.makeText(this, "⭐ Guardado en Detectados", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -574,13 +613,21 @@ class MainActivity : AppCompatActivity() {
         o.optString("p").replace(".", "").replace(",", "").trim().toLongOrNull() ?: Long.MAX_VALUE
 
     private var filtro = 0
+    private var periodo = 2 // 0 = hoy, 1 = 5 días, 2 = todo
 
     private fun esMarketplace(o: JSONObject) = o.optString("f") == "Marketplace"
 
     /** orden: 0 = más recientes, 1 = menor precio, 2 = mayor precio */
     private fun mostrarDetectados(orden: Int) {
         modoRevision = false
-        val todasSin = store.fichas()
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
+        val desdeMs = when (periodo) {
+            0 -> cal.timeInMillis
+            1 -> cal.timeInMillis - 4L * 24 * 3600 * 1000
+            else -> 0L
+        }
+        val todasSin = store.fichas().filter { it.optLong("d") >= desdeMs }
         val todas = when (filtro) {
             1 -> todasSin.filter { it.has("s") && it.optString("s").isBlank() && !esMarketplace(it) }
             2 -> todasSin.filter { !esMarketplace(it) }
@@ -616,6 +663,16 @@ class MainActivity : AppCompatActivity() {
         hs2.isHorizontalScrollBarEnabled = false
         hs2.addView(chips2)
         lista.addView(hs2)
+        lista.addView(Estilo.espacio(this, 8f))
+        val chips3 = LinearLayout(this)
+        chips3.orientation = LinearLayout.HORIZONTAL
+        listOf("📅 Hoy", "Últimos 5 días", "Todo").forEachIndexed { i, t ->
+            val p = LinearLayout.LayoutParams(-2, -2)
+            p.setMargins(0, 0, d(8f), 0)
+            chips3.addView(Estilo.chip(this, t, i == periodo) { periodo = i; mostrarDetectados(orden) }, p)
+        }
+        lista.addView(chips3)
+        lista.addView(Estilo.texto(this, "Mantenga presionado un carro para quitarlo.", 11f, Estilo.GRIS).also { it.setPadding(0, d(8f), 0, 0) })
         lista.addView(Estilo.espacio(this, 10f))
         if (todas.isEmpty()) {
             lista.addView(
@@ -724,6 +781,18 @@ class MainActivity : AppCompatActivity() {
         cont.orientation = LinearLayout.VERTICAL
         cont.setPadding(0, d(5f), 0, d(5f))
         cont.addView(card)
+        card.setOnLongClickListener {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("¿Quitar de Detectados?")
+                .setMessage(o.optString("t"))
+                .setPositiveButton("Quitar") { _, _ ->
+                    store.quitarFicha(o.optString("id"))
+                    cont.visibility = View.GONE
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+            true
+        }
         return cont
     }
 
