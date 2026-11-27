@@ -175,12 +175,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
-                botonGuardar.visibility = if (url.contains("facebook.com") && url.contains("/marketplace/item/")) View.VISIBLE else View.GONE
+                actualizarBoton(url)
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 revisarFinalizada(url)
-                botonGuardar.visibility = if (url.contains("facebook.com") && url.contains("/marketplace/item/")) View.VISIBLE else View.GONE
+                if (modoSeleccion && url.contains("facebook.com")) web.evaluateJavascript(jsSelOn, null)
+                actualizarBoton(url)
                 if (url.contains("carros.tucarro.com.co") || url.contains("carros.mercadolibre.com.co")) {
                     handler.removeCallbacksAndMessages(null)
                     handler.postDelayed({ analizar() }, 1800)
@@ -189,7 +190,9 @@ class MainActivity : AppCompatActivity() {
         }
         val marcoWeb = FrameLayout(this)
         marcoWeb.addView(web, FrameLayout.LayoutParams(-1, -1))
-        botonGuardar = Estilo.boton(this, "⭐ Guardar en Detectados", true) { guardarMarketplace() }
+        botonGuardar = Estilo.boton(this, "⭐ Guardar en Detectados", true) {
+            if (web.url.orEmpty().contains("/marketplace/item/")) guardarMarketplace() else guardarSeleccionados()
+        }
         botonGuardar.textSize = 15f
         val pb = FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
         pb.setMargins(0, 0, 0, d(18f))
@@ -345,6 +348,10 @@ class MainActivity : AppCompatActivity() {
                 p.setMargins(0, 0, d(8f), 0)
                 segmento.addView(c, p)
             }
+            val sel = Estilo.chip(this, if (modoSeleccion) "☑ Seleccionando" else "☐ Seleccionar varios", modoSeleccion) {
+                activarSeleccion(!modoSeleccion)
+            }
+            segmento.addView(sel, LinearLayout.LayoutParams(-2, -2))
             return
         }
         segmento.visibility = View.VISIBLE
@@ -490,6 +497,112 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var diasMarket = 1
+    private var modoSeleccion = false
+
+    private val jsSelOn = """
+        (function(){
+          window.__jsel=true;
+          if(!window.__jselInit){
+            window.__jselInit=true;
+            document.addEventListener('click',function(e){
+              if(!window.__jsel) return;
+              var a=e.target.closest('a[href*="/marketplace/item/"]'); if(!a) return;
+              e.preventDefault(); e.stopPropagation();
+              if(a.getAttribute('data-jsel')){ a.removeAttribute('data-jsel'); a.style.outline=''; var b=a.querySelector('.jsel-b'); if(b) b.remove(); }
+              else { a.setAttribute('data-jsel','1'); a.style.outline='5px solid #ff8a00'; a.style.outlineOffset='-5px'; a.style.position='relative';
+                var t=document.createElement('div'); t.className='jsel-b'; t.textContent='✓';
+                t.style.cssText='position:absolute;top:8px;left:8px;z-index:9;background:#ff8a00;color:#fff;font-weight:bold;font-size:20px;width:34px;height:34px;border-radius:17px;text-align:center;line-height:34px';
+                a.appendChild(t); }
+            },true);
+          }
+          return document.querySelectorAll('a[data-jsel]').length;
+        })()
+    """.trimIndent()
+
+    private val jsSelOff = """
+        (function(){ window.__jsel=false;
+          document.querySelectorAll('a[data-jsel]').forEach(function(a){a.removeAttribute('data-jsel');a.style.outline='';var b=a.querySelector('.jsel-b');if(b)b.remove();});
+        })()
+    """.trimIndent()
+
+    private val jsSelLeer = """
+        (function(){
+          function miles(d){return d.replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+          var out=[];
+          document.querySelectorAll('a[data-jsel]').forEach(function(a){
+            var m=a.href.match(/\/marketplace\/item\/(\d+)/); if(!m) return;
+            var lines=(a.innerText||'').split('\n').map(function(x){return x.trim();}).filter(function(x){return x&&x!=='✓';});
+            var p='',t='',km='',loc='';
+            lines.forEach(function(l){
+              if(!p && l.indexOf('$')>=0){ var dg=l.replace(/\D/g,''); if(dg) p=miles(dg); return; }
+              if(!km && /(km|millas)/i.test(l)){ km=l; return; }
+              if(!t){ t=l; return; }
+              loc=l;
+            });
+            var img=a.querySelector('img');
+            out.push({id:'FB'+m[1],t:t,p:p,u:'https://www.facebook.com/marketplace/item/'+m[1]+'/',img:img?img.src:'',a:km,l:loc});
+          });
+          return JSON.stringify(out);
+        })()
+    """.trimIndent()
+
+    private fun activarSeleccion(si: Boolean) {
+        modoSeleccion = si
+        web.evaluateJavascript(if (si) jsSelOn else jsSelOff, null)
+        pintarSegmento()
+        actualizarBoton(web.url.orEmpty())
+        if (si) {
+            android.widget.Toast.makeText(this, "Toque los carros que le interesan y luego “Guardar seleccionados”", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun actualizarBoton(url: String) {
+        val esFb = url.contains("facebook.com")
+        when {
+            esFb && modoSeleccion && !url.contains("/marketplace/item/") -> {
+                botonGuardar.text = "⭐ Guardar seleccionados"
+                botonGuardar.visibility = View.VISIBLE
+            }
+            esFb && url.contains("/marketplace/item/") -> {
+                botonGuardar.text = "⭐ Guardar en Detectados"
+                botonGuardar.visibility = View.VISIBLE
+            }
+            else -> botonGuardar.visibility = View.GONE
+        }
+    }
+
+    private fun guardarSeleccionados() {
+        web.evaluateJavascript(jsSelLeer) { res ->
+            val arr = try {
+                JSONArray(JSONTokener(res).nextValue() as String)
+            } catch (e: Exception) {
+                JSONArray()
+            }
+            if (arr.length() == 0) {
+                android.widget.Toast.makeText(this, "No ha seleccionado ningún carro todavía", android.widget.Toast.LENGTH_SHORT).show()
+                return@evaluateJavascript
+            }
+            var nuevos = 0
+            var repetidos = 0
+            val aGuardar = JSONArray()
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (store.existeFicha(o.optString("id"))) {
+                    repetidos++
+                } else {
+                    val f = Compartidos.ficha(o.optString("id"), o.optString("t"), o.optString("p"), o.optString("u"), o.optString("img"), o.optString("a"))
+                    f.put("l", o.optString("l"))
+                    aGuardar.put(f)
+                    nuevos++
+                }
+            }
+            if (aGuardar.length() > 0) store.registrarFichas(aGuardar)
+            val msg = "⭐ $nuevos guardado(s) en Detectados" + if (repetidos > 0) " · $repetidos ya estaban" else ""
+            android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
+            web.evaluateJavascript(jsSelOff, null)
+            web.evaluateJavascript(jsSelOn, null)
+        }
+    }
 
     private fun clave(): String = "vistosWeb$pestana"
 
@@ -498,6 +611,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun abrir(i: Int) {
+        if (i != 2) modoSeleccion = false
         modoRevision = false
         pestana = i
         tomarFoto()
