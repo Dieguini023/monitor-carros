@@ -13,12 +13,14 @@ import android.widget.TextView
 
 /** Colores y piezas visuales comunes de Jerocar (tema oscuro). */
 object Estilo {
-    val FONDO = Color.parseColor("#0B1020")
-    val TARJETA = Color.parseColor("#161C30")
-    val TARJETA2 = Color.parseColor("#1E2540")
-    val BORDE = Color.parseColor("#2A3252")
-    val TEXTO = Color.parseColor("#F1F4FF")
-    val GRIS = Color.parseColor("#9AA3C0")
+    val FONDO = Color.parseColor("#0A0B10")
+    val TARJETA = Color.parseColor("#14161E")
+    val TARJETA2 = Color.parseColor("#1C1F2A")
+    val BORDE = Color.parseColor("#262A36")
+    val TEXTO = Color.parseColor("#F4F5F8")
+    val GRIS = Color.parseColor("#8B90A0")
+    val MEDIA: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    val FINA: Typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
     val CIAN = Color.parseColor("#22D3EE")
     val VIOLETA = Color.parseColor("#A855F7")
     val NARANJA = Color.parseColor("#FF8A00")
@@ -45,8 +47,29 @@ object Estilo {
         v.text = t
         v.textSize = tam
         v.setTextColor(color)
-        if (negrita) v.setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        v.typeface = if (negrita) MEDIA else Typeface.create("sans-serif", Typeface.NORMAL)
+        v.letterSpacing = if (tam >= 20f) -0.01f else 0.01f
         return v
+    }
+
+    fun icono(ctx: Context, res: Int, color: Int, tam: Float = 24f): android.widget.ImageView {
+        val i = android.widget.ImageView(ctx)
+        i.setImageResource(res)
+        i.setColorFilter(color)
+        i.layoutParams = LinearLayout.LayoutParams(dp(ctx, tam), dp(ctx, tam))
+        return i
+    }
+
+    fun insignia(ctx: Context, t: String, fondoColor: Int, colorTexto: Int): TextView {
+        val b = TextView(ctx)
+        b.text = t
+        b.textSize = 8.5f
+        b.typeface = Typeface.DEFAULT_BOLD
+        b.setTextColor(colorTexto)
+        b.gravity = Gravity.CENTER
+        b.setPadding(dp(ctx, 3f), 0, dp(ctx, 3f), 0)
+        b.background = fondo(fondoColor, 4f, ctx)
+        return b
     }
 
     /** Botón con fondo redondeado. principal = degradado naranja. */
@@ -55,10 +78,11 @@ object Estilo {
         b.text = t
         b.isAllCaps = false
         b.textSize = if (principal) 17f else 14f
-        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-        b.setTextColor(if (principal) Color.WHITE else TEXTO)
+        b.typeface = MEDIA
+        b.letterSpacing = 0.02f
+        b.setTextColor(if (principal) Color.parseColor("#0A0B10") else TEXTO)
         b.background = if (principal) {
-            degradado(Color.parseColor("#FF8A00"), Color.parseColor("#FF4D6D"), 16f, ctx)
+            degradado(Color.parseColor("#22D3EE"), Color.parseColor("#818CF8"), 14f, ctx)
         } else {
             fondo(TARJETA2, 12f, ctx, BORDE)
         }
@@ -70,7 +94,7 @@ object Estilo {
     }
 
     fun chip(ctx: Context, t: String, activo: Boolean, accion: () -> Unit): TextView {
-        val v = texto(ctx, t, 13f, if (activo) Color.parseColor("#0B1020") else TEXTO, activo)
+        val v = texto(ctx, t, 13f, if (activo) Color.parseColor("#0A0B10") else TEXTO, activo)
         v.gravity = Gravity.CENTER
         v.setPadding(dp(ctx, 14f), dp(ctx, 8f), dp(ctx, 14f), dp(ctx, 8f))
         v.background = if (activo) degradado(CIAN, VIOLETA, 20f, ctx) else fondo(TARJETA2, 20f, ctx, BORDE)

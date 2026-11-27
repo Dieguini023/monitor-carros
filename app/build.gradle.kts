@@ -10,8 +10,8 @@ android {
         applicationId = "co.diegomunoz.alertascarros"
         minSdk = 26
         targetSdk = 34
-        versionCode = 22
-        versionName = "1.8"
+        versionCode = 23
+        versionName = "1.9"
     }
     signingConfigs {
         getByName("debug") {

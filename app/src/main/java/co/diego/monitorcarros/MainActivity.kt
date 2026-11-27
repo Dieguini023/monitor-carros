@@ -276,28 +276,54 @@ class MainActivity : AppCompatActivity() {
         capaLista.visibility = if (v == V_LISTA) View.VISIBLE else View.GONE
         // la web queda INVISIBLE (no GONE) para que pueda cargar mientras se revisa
         capaWeb.visibility = if (v == V_WEB) View.VISIBLE else View.INVISIBLE
-        navItems.forEachIndexed { i, item ->
+        navItems.indices.forEach { i ->
             val activo = i == nav
-            val ico = item.getChildAt(0) as TextView
-            val lab = item.getChildAt(1) as TextView
-            lab.setTextColor(if (activo) Estilo.CIAN else Estilo.GRIS)
-            lab.setTypeface(Typeface.DEFAULT, if (activo) Typeface.BOLD else Typeface.NORMAL)
-            ico.alpha = if (activo) 1f else 0.55f
+            navIconos[i].setColorFilter(if (activo) Estilo.CIAN else Estilo.GRIS)
+            navTextos[i].setTextColor(if (activo) Estilo.TEXTO else Estilo.GRIS)
+            navTextos[i].typeface = if (activo) Estilo.MEDIA else Typeface.create("sans-serif", Typeface.NORMAL)
+            navLineas[i].visibility = if (activo) View.VISIBLE else View.INVISIBLE
         }
     }
+
+    private val navIconos = mutableListOf<android.widget.ImageView>()
+    private val navTextos = mutableListOf<TextView>()
+    private val navLineas = mutableListOf<View>()
 
     private fun barraInferior(): View {
         val barra = LinearLayout(this)
         barra.orientation = LinearLayout.HORIZONTAL
-        barra.setBackgroundColor(Estilo.TARJETA)
-        barra.setPadding(0, d(6f), 0, d(6f))
-        val items = listOf("🏠" to "Inicio", "📋" to "Detectados", "🚗" to "TuCarro", "🛒" to "Marketplace")
-        items.forEachIndexed { i, (ico, lab) ->
+        val fondoBarra = android.graphics.drawable.GradientDrawable()
+        fondoBarra.setColor(Color.parseColor("#0E1017"))
+        fondoBarra.setStroke(1, Estilo.BORDE)
+        barra.background = fondoBarra
+        barra.setPadding(0, d(4f), 0, d(8f))
+        data class It(val ico: Int, val lab: String, val ins: String?, val insF: Int, val insT: Int)
+        val items = listOf(
+            It(R.drawable.ic_home, "Inicio", null, 0, 0),
+            It(R.drawable.ic_radar, "Detectados", null, 0, 0),
+            It(R.drawable.ic_car, "TuCarro", "TC", Color.parseColor("#FFE600"), Color.parseColor("#111111")),
+            It(R.drawable.ic_store, "Marketplace", "FB", Color.parseColor("#1877F2"), Color.WHITE),
+        )
+        items.forEachIndexed { i, it ->
             val item = LinearLayout(this)
             item.orientation = LinearLayout.VERTICAL
-            item.gravity = Gravity.CENTER
-            item.addView(Estilo.texto(this, ico, 20f).also { it.gravity = Gravity.CENTER })
-            item.addView(Estilo.texto(this, lab, 11f, Estilo.GRIS).also { it.gravity = Gravity.CENTER })
+            item.gravity = Gravity.CENTER_HORIZONTAL
+            val linea = View(this)
+            linea.background = Estilo.degradado(Estilo.CIAN, Color.parseColor("#818CF8"), 2f, this)
+            item.addView(linea, LinearLayout.LayoutParams(d(26f), d(2.5f)).also { p -> p.bottomMargin = d(6f) })
+            val caja = FrameLayout(this)
+            val ico = Estilo.icono(this, it.ico, Estilo.GRIS, 24f)
+            caja.addView(ico, FrameLayout.LayoutParams(d(24f), d(24f), Gravity.CENTER))
+            if (it.ins != null) {
+                val b = Estilo.insignia(this, it.ins, it.insF, it.insT)
+                val pb = FrameLayout.LayoutParams(-2, d(12f), Gravity.TOP or Gravity.END)
+                caja.addView(b, pb)
+            }
+            item.addView(caja, LinearLayout.LayoutParams(d(40f), d(28f)))
+            val lab = Estilo.texto(this, it.lab, 11f, Estilo.GRIS)
+            lab.gravity = Gravity.CENTER
+            lab.setPadding(0, d(2f), 0, 0)
+            item.addView(lab)
             item.setOnClickListener {
                 when (i) {
                     0 -> mostrarInicio()
@@ -308,6 +334,9 @@ class MainActivity : AppCompatActivity() {
             }
             barra.addView(item, LinearLayout.LayoutParams(0, -2, 1f))
             navItems.add(item)
+            navIconos.add(ico)
+            navTextos.add(lab)
+            navLineas.add(linea)
         }
         return barra
     }
@@ -319,14 +348,14 @@ class MainActivity : AppCompatActivity() {
         val fila = LinearLayout(this)
         fila.orientation = LinearLayout.HORIZONTAL
         fila.gravity = Gravity.CENTER_VERTICAL
-        val atras = Estilo.texto(this, "‹", 30f, Estilo.TEXTO, true)
-        atras.setPadding(d(6f), 0, d(14f), 0)
+        val atras = Estilo.icono(this, R.drawable.ic_back, Estilo.TEXTO, 24f)
+        atras.setPadding(0, 0, d(10f), 0)
+        atras.layoutParams = LinearLayout.LayoutParams(d(34f), d(24f))
         atras.setOnClickListener { if (web.canGoBack()) web.goBack() else mostrarInicio() }
         fila.addView(atras)
         tituloWeb = Estilo.texto(this, "", 18f, Estilo.TEXTO, true)
         fila.addView(tituloWeb, LinearLayout.LayoutParams(0, -2, 1f))
-        val rec = Estilo.texto(this, "⟳", 24f, Estilo.CIAN, true)
-        rec.setPadding(d(12f), 0, d(6f), 0)
+        val rec = Estilo.icono(this, R.drawable.ic_refresh, Estilo.CIAN, 22f)
         rec.setOnClickListener {
             tomarFoto()
             banner.visibility = View.GONE
@@ -387,11 +416,13 @@ class MainActivity : AppCompatActivity() {
         val tit = LinearLayout(this)
         tit.orientation = LinearLayout.VERTICAL
         tit.setPadding(d(12f), 0, 0, 0)
-        tit.addView(Estilo.texto(this, "Jerocar", 26f, Estilo.TEXTO, true))
-        tit.addView(Estilo.texto(this, "Radar de compraventa de vehículos", 13f, Estilo.GRIS))
+        tit.addView(Estilo.texto(this, "JEROCAR", 22f, Estilo.TEXTO, true).also { it.letterSpacing = 0.18f })
+        tit.addView(Estilo.texto(this, "Radar de compraventa de vehículos", 12.5f, Estilo.GRIS))
         cab.addView(tit, LinearLayout.LayoutParams(0, -2, 1f))
-        val aj = Estilo.texto(this, "⚙", 24f, Estilo.GRIS)
-        aj.setPadding(d(10f), d(6f), d(4f), d(6f))
+        val aj = Estilo.icono(this, R.drawable.ic_sliders, Estilo.GRIS, 24f)
+        aj.background = Estilo.fondo(Estilo.TARJETA, 12f, this, Estilo.BORDE)
+        aj.setPadding(d(9f), d(9f), d(9f), d(9f))
+        aj.layoutParams = LinearLayout.LayoutParams(d(42f), d(42f))
         aj.setOnClickListener { startActivity(Intent(this, AjustesActivity::class.java)) }
         cab.addView(aj)
         inicio.addView(cab)
@@ -401,8 +432,14 @@ class MainActivity : AppCompatActivity() {
         val hero = LinearLayout(this)
         hero.orientation = LinearLayout.VERTICAL
         hero.setPadding(d(18f), d(18f), d(18f), d(18f))
-        hero.background = Estilo.degradado(Color.parseColor("#1D4ED8"), Color.parseColor("#7C3AED"), 20f, this)
-        hero.addView(Estilo.texto(this, "ZONA ACTIVA", 11f, Color.parseColor("#C7D2FE"), true))
+        val hf = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(Color.parseColor("#161A26"), Color.parseColor("#10121A")),
+        )
+        hf.cornerRadius = d(20f).toFloat()
+        hf.setStroke(d(1f).coerceAtLeast(1), Color.parseColor("#2B3A4E"))
+        hero.background = hf
+        hero.addView(Estilo.texto(this, "ZONA ACTIVA", 10.5f, Estilo.CIAN, true).also { it.letterSpacing = 0.2f })
         hero.addView(Estilo.texto(this, "${store.departamento} · ${Revision.pesos(store.precioMin)} – ${Revision.pesos(store.precioMax)}", 16f, Color.WHITE, true))
         hero.addView(Estilo.espacio(this, 14f))
         val stats = LinearLayout(this)
@@ -410,8 +447,8 @@ class MainActivity : AppCompatActivity() {
         fun stat(valor: String, etiqueta: String) {
             val c = LinearLayout(this)
             c.orientation = LinearLayout.VERTICAL
-            c.addView(Estilo.texto(this, valor, 24f, Color.WHITE, true))
-            c.addView(Estilo.texto(this, etiqueta, 12f, Color.parseColor("#C7D2FE")))
+            c.addView(Estilo.texto(this, valor, 26f, Color.WHITE).also { it.typeface = Estilo.FINA })
+            c.addView(Estilo.texto(this, etiqueta.uppercase(), 9.5f, Estilo.GRIS, true).also { it.letterSpacing = 0.12f })
             stats.addView(c, LinearLayout.LayoutParams(0, -2, 1f))
         }
         stat("$hoy", "detectados hoy")
@@ -422,7 +459,14 @@ class MainActivity : AppCompatActivity() {
         inicio.addView(Estilo.espacio(this, 16f))
 
         // botón principal
-        inicio.addView(Estilo.boton(this, "🔍  Revisar ahora", true) { revisar() }, LinearLayout.LayoutParams(-1, -2))
+        val bRev = Estilo.boton(this, "Revisar ahora", true) { revisar() }
+        val lupa = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_search)?.mutate()
+        lupa?.setTint(Color.parseColor("#0A0B10"))
+        lupa?.setBounds(0, 0, d(20f), d(20f))
+        bRev.setCompoundDrawables(lupa, null, null, null)
+        bRev.compoundDrawablePadding = d(10f)
+        bRev.setPadding(d(72f), 0, d(72f), 0)
+        inicio.addView(bRev, LinearLayout.LayoutParams(-1, -2))
         val rec = if (store.intervalo > 0) "Recordatorio cada ${store.intervalo} min · ${store.horaInicio}:00 a ${store.horaFin}:00" else "Recordatorio apagado"
         inicio.addView(Estilo.texto(this, rec, 12f, Estilo.GRIS).also { it.gravity = Gravity.CENTER; it.setPadding(0, d(8f), 0, 0) }, LinearLayout.LayoutParams(-1, -2))
         inicio.addView(Estilo.espacio(this, 22f))
@@ -431,8 +475,8 @@ class MainActivity : AppCompatActivity() {
         val filaT = LinearLayout(this)
         filaT.orientation = LinearLayout.HORIZONTAL
         filaT.gravity = Gravity.CENTER_VERTICAL
-        filaT.addView(Estilo.texto(this, "Últimos detectados", 18f, Estilo.TEXTO, true), LinearLayout.LayoutParams(0, -2, 1f))
-        val ver = Estilo.texto(this, "Ver todos ›", 14f, Estilo.CIAN, true)
+        filaT.addView(Estilo.texto(this, "ÚLTIMOS DETECTADOS", 12f, Estilo.GRIS, true).also { it.letterSpacing = 0.15f }, LinearLayout.LayoutParams(0, -2, 1f))
+        val ver = Estilo.texto(this, "Ver todos", 13f, Estilo.CIAN, true)
         ver.setOnClickListener { mostrarDetectados(0) }
         filaT.addView(ver)
         inicio.addView(filaT)
@@ -446,17 +490,17 @@ class MainActivity : AppCompatActivity() {
         inicio.addView(Estilo.espacio(this, 18f))
 
         // fuentes
-        inicio.addView(Estilo.texto(this, "Fuentes", 18f, Estilo.TEXTO, true))
+        inicio.addView(Estilo.texto(this, "FUENTES", 12f, Estilo.GRIS, true).also { it.letterSpacing = 0.15f })
         inicio.addView(Estilo.espacio(this, 8f))
         val f1 = LinearLayout(this)
         f1.orientation = LinearLayout.HORIZONTAL
-        f1.addView(mosaico("🚗", "TuCarro hoy", "Publicados hoy") { abrir(0) }, mosaicoLp(true))
-        f1.addView(mosaico("📚", "TuCarro todo", "Todo el inventario") { abrir(1) }, mosaicoLp(false))
+        f1.addView(mosaico(R.drawable.ic_car, "TC", "TuCarro hoy", "Publicados hoy") { abrir(0) }, mosaicoLp(true))
+        f1.addView(mosaico(R.drawable.ic_layers, "TC", "TuCarro todo", "Todo el inventario") { abrir(1) }, mosaicoLp(false))
         inicio.addView(f1)
         val f2 = LinearLayout(this)
         f2.orientation = LinearLayout.HORIZONTAL
-        f2.addView(mosaico("🛒", "Marketplace", "Vehículos recientes") { abrir(2) }, mosaicoLp(true))
-        f2.addView(mosaico("⚙", "Ajustes", "Zona, precio y avisos") { startActivity(Intent(this, AjustesActivity::class.java)) }, mosaicoLp(false))
+        f2.addView(mosaico(R.drawable.ic_store, "FB", "Marketplace", "Vehículos recientes") { abrir(2) }, mosaicoLp(true))
+        f2.addView(mosaico(R.drawable.ic_sliders, null, "Ajustes", "Zona, precio y avisos") { startActivity(Intent(this, AjustesActivity::class.java)) }, mosaicoLp(false))
         inicio.addView(f2)
     }
 
@@ -466,13 +510,25 @@ class MainActivity : AppCompatActivity() {
         return p
     }
 
-    private fun mosaico(ico: String, t: String, sub: String, accion: () -> Unit): View {
+    private fun mosaico(ico: Int, ins: String?, t: String, sub: String, accion: () -> Unit): View {
         val c = LinearLayout(this)
         c.orientation = LinearLayout.VERTICAL
-        c.setPadding(d(14f), d(14f), d(14f), d(14f))
-        c.background = Estilo.fondo(Estilo.TARJETA, 16f, this, Estilo.BORDE)
-        c.addView(Estilo.texto(this, ico, 24f))
-        c.addView(Estilo.espacio(this, 6f))
+        c.setPadding(d(16f), d(16f), d(16f), d(16f))
+        c.background = Estilo.fondo(Estilo.TARJETA, 18f, this, Estilo.BORDE)
+        val fila = LinearLayout(this)
+        fila.orientation = LinearLayout.HORIZONTAL
+        fila.gravity = Gravity.CENTER_VERTICAL
+        val circ = FrameLayout(this)
+        circ.background = Estilo.fondo(Estilo.TARJETA2, 12f, this, Estilo.BORDE)
+        circ.addView(Estilo.icono(this, ico, Estilo.CIAN, 22f), FrameLayout.LayoutParams(d(22f), d(22f), Gravity.CENTER))
+        fila.addView(circ, LinearLayout.LayoutParams(d(42f), d(42f)))
+        if (ins != null) {
+            val b = if (ins == "TC") Estilo.insignia(this, "TC", Color.parseColor("#FFE600"), Color.parseColor("#111111"))
+            else Estilo.insignia(this, "FB", Color.parseColor("#1877F2"), Color.WHITE)
+            fila.addView(b, LinearLayout.LayoutParams(-2, d(14f)).also { p -> p.leftMargin = d(8f) })
+        }
+        c.addView(fila)
+        c.addView(Estilo.espacio(this, 12f))
         c.addView(Estilo.texto(this, t, 15f, Estilo.TEXTO, true))
         c.addView(Estilo.texto(this, sub, 12f, Estilo.GRIS))
         c.setOnClickListener { accion() }
