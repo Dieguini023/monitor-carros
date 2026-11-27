@@ -162,6 +162,7 @@ class MainActivity : AppCompatActivity() {
         web.settings.useWideViewPort = true
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+        web.addJavascriptInterface(Puente(), "Jerocar")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
@@ -506,24 +507,58 @@ class MainActivity : AppCompatActivity() {
           window.__jsel=true;
           if(!window.__jselInit){
             window.__jselInit=true;
-            document.addEventListener('click',function(e){
-              if(!window.__jsel) return;
-              var a=e.target.closest('a[href*="/marketplace/item/"]'); if(!a) return;
-              e.preventDefault(); e.stopPropagation();
-              if(a.getAttribute('data-jsel')){ a.removeAttribute('data-jsel'); a.style.outline=''; var b=a.querySelector('.jsel-b'); if(b) b.remove(); }
-              else { a.setAttribute('data-jsel','1'); a.style.outline='5px solid #ff8a00'; a.style.outlineOffset='-5px'; a.style.position='relative';
+            var RX=/marketplace(?:\\\/|\/|%2F)item(?:\\\/|\/|%2F)(\d{6,})/;
+            function tarjeta(t){
+              var el=t, n=0;
+              while(el && el!==document.body && n<12){
+                var h=el.outerHTML||'';
+                if(h.length<20000){
+                  var all=h.match(new RegExp(RX.source,'g'))||[];
+                  var ids={}; all.forEach(function(x){var m=x.match(RX); if(m) ids[m[1]]=1;});
+                  var k=Object.keys(ids);
+                  if(k.length===1 && (el.querySelector('img')||el.tagName==='A')) return {el:el,id:k[0]};
+                  if(k.length>1) return null;
+                }
+                el=el.parentElement; n++;
+              }
+              return null;
+            }
+            function marcar(c){
+              var el=c.el;
+              if(el.getAttribute('data-jsel-id')){
+                el.removeAttribute('data-jsel-id'); el.style.outline=''; var b=el.querySelector('.jsel-b'); if(b) b.remove();
+              } else {
+                el.setAttribute('data-jsel-id',c.id); el.style.outline='5px solid #ff8a00'; el.style.outlineOffset='-5px';
+                if(getComputedStyle(el).position==='static') el.style.position='relative';
                 var t=document.createElement('div'); t.className='jsel-b'; t.textContent='✓';
-                t.style.cssText='position:absolute;top:8px;left:8px;z-index:9;background:#ff8a00;color:#fff;font-weight:bold;font-size:20px;width:34px;height:34px;border-radius:17px;text-align:center;line-height:34px';
-                a.appendChild(t); }
+                t.style.cssText='position:absolute;top:8px;left:8px;z-index:99;background:#ff8a00;color:#fff;font-weight:bold;font-size:20px;width:34px;height:34px;border-radius:17px;text-align:center;line-height:34px;pointer-events:none';
+                el.appendChild(t);
+              }
+              try{ Jerocar.contador(document.querySelectorAll('[data-jsel-id]').length); }catch(e){}
+            }
+            var x0=0,y0=0,mov=false;
+            function bloquear(e){ if(!window.__jsel) return; if(e.target.closest && e.target.closest('[data-jsel-ignorar]')) return; e.stopPropagation(); if(e.type!=='touchstart'&&e.type!=='touchmove') e.preventDefault(); }
+            document.addEventListener('touchstart',function(e){ if(!window.__jsel) return; var p=e.touches[0]; x0=p.clientX; y0=p.clientY; mov=false; e.stopPropagation(); },true);
+            document.addEventListener('touchmove',function(e){ if(!window.__jsel) return; var p=e.touches[0]; if(Math.abs(p.clientX-x0)>10||Math.abs(p.clientY-y0)>10) mov=true; e.stopPropagation(); },true);
+            document.addEventListener('touchend',function(e){
+              if(!window.__jsel) return;
+              e.stopPropagation();
+              if(mov) return;
+              e.preventDefault();
+              var c=tarjeta(e.target);
+              if(c) marcar(c); else { try{ Jerocar.aviso('Toque sobre la foto del carro'); }catch(err){} }
             },true);
+            ['click','pointerdown','pointerup','mousedown','mouseup','contextmenu'].forEach(function(ev){ document.addEventListener(ev,bloquear,true); });
           }
-          return document.querySelectorAll('a[data-jsel]').length;
+          try{ Jerocar.contador(document.querySelectorAll('[data-jsel-id]').length); }catch(e){}
+          return document.querySelectorAll('[data-jsel-id]').length;
         })()
     """.trimIndent()
 
     private val jsSelOff = """
         (function(){ window.__jsel=false;
-          document.querySelectorAll('a[data-jsel]').forEach(function(a){a.removeAttribute('data-jsel');a.style.outline='';var b=a.querySelector('.jsel-b');if(b)b.remove();});
+          document.querySelectorAll('[data-jsel-id]').forEach(function(a){a.removeAttribute('data-jsel-id');a.style.outline='';var b=a.querySelector('.jsel-b');if(b)b.remove();});
+          try{ Jerocar.contador(0); }catch(e){}
         })()
     """.trimIndent()
 
@@ -531,8 +566,8 @@ class MainActivity : AppCompatActivity() {
         (function(){
           function miles(d){return d.replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
           var out=[];
-          document.querySelectorAll('a[data-jsel]').forEach(function(a){
-            var m=a.href.match(/\/marketplace\/item\/(\d+)/); if(!m) return;
+          document.querySelectorAll('[data-jsel-id]').forEach(function(a){
+            var id=a.getAttribute('data-jsel-id');
             var lines=(a.innerText||'').split('\n').map(function(x){return x.trim();}).filter(function(x){return x&&x!=='✓';});
             var p='',t='',km='',loc='';
             lines.forEach(function(l){
@@ -542,18 +577,25 @@ class MainActivity : AppCompatActivity() {
               loc=l;
             });
             var img=a.querySelector('img');
-            out.push({id:'FB'+m[1],t:t,p:p,u:'https://www.facebook.com/marketplace/item/'+m[1]+'/',img:img?img.src:'',a:km,l:loc});
+            out.push({id:'FB'+id,t:t,p:p,u:'https://www.facebook.com/marketplace/item/'+id+'/',img:img?(img.currentSrc||img.src):'',a:km,l:loc});
           });
           return JSON.stringify(out);
         })()
     """.trimIndent()
 
-    /** Desde la notificación: Marketplace de hoy con "Seleccionar varios" ya activo. */
-    private fun marketplaceSeleccion() {
-        diasMarket = 1
-        modoSeleccion = true
-        abrir(2)
-        android.widget.Toast.makeText(this, "Marque los carros que le interesan y toque “⭐ Guardar seleccionados”", android.widget.Toast.LENGTH_LONG).show()
+    /** Puente mínimo para que la página avise cuántos van seleccionados. */
+    inner class Puente {
+        @android.webkit.JavascriptInterface
+        fun contador(n: Int) {
+            runOnUiThread {
+                if (modoSeleccion) botonGuardar.text = if (n > 0) "⭐ Guardar seleccionados ($n)" else "⭐ Guardar seleccionados"
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun aviso(t: String) {
+            runOnUiThread { android.widget.Toast.makeText(this@MainActivity, t.take(80), android.widget.Toast.LENGTH_SHORT).show() }
+        }
     }
 
     private fun activarSeleccion(si: Boolean) {
