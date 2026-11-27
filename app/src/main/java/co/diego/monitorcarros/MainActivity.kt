@@ -88,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tituloWeb: TextView
     private lateinit var segmento: LinearLayout
     private val navItems = mutableListOf<LinearLayout>()
+    private lateinit var botonGuardar: android.widget.Button
 
     private var vista = V_INICIO
     private var pestana = 0
@@ -173,14 +174,28 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                botonGuardar.visibility = if (url.contains("facebook.com") && url.contains("/marketplace/item/")) View.VISIBLE else View.GONE
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
+                botonGuardar.visibility = if (url.contains("facebook.com") && url.contains("/marketplace/item/")) View.VISIBLE else View.GONE
                 if (url.contains("carros.tucarro.com.co") || url.contains("carros.mercadolibre.com.co")) {
                     handler.removeCallbacksAndMessages(null)
                     handler.postDelayed({ analizar() }, 1800)
                 }
             }
         }
-        capaWeb.addView(web, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        val marcoWeb = FrameLayout(this)
+        marcoWeb.addView(web, FrameLayout.LayoutParams(-1, -1))
+        botonGuardar = Estilo.boton(this, "⭐ Guardar en Detectados", true) { guardarMarketplace() }
+        botonGuardar.textSize = 15f
+        val pb = FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+        pb.setMargins(0, 0, 0, d(18f))
+        botonGuardar.elevation = d(6f).toFloat()
+        botonGuardar.visibility = View.GONE
+        marcoWeb.addView(botonGuardar, pb)
+        capaWeb.addView(marcoWeb, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         marco.addView(capaWeb, FrameLayout.LayoutParams(-1, -1))
 
         // ---- capa lista
@@ -484,6 +499,41 @@ class MainActivity : AppCompatActivity() {
         web.loadUrl(url(i))
     }
 
+    private val jsItemFb = """
+        (function(){
+          function m(n){var e=document.querySelector('meta[property="'+n+'"]');return e?(e.content||''):'';}
+          var t=m('og:title')||document.title||'';
+          var dsc=m('og:description'); var img=m('og:image');
+          var txt=(document.body?document.body.innerText:'').substring(0,4000);
+          var pm=(t+' '+dsc+' '+txt).match(/\$\s?(\d{1,3}(?:[.\s,]\d{3})+)/);
+          var h1=document.querySelector('h1'); if(h1&&h1.innerText.trim().length>3) t=h1.innerText.trim();
+          return JSON.stringify({t:t,dsc:dsc.substring(0,120),img:img,p:pm?pm[1].replace(/[\s,]/g,'.'):'',u:location.href.split('?')[0]});
+        })()
+    """.trimIndent()
+
+    private fun guardarMarketplace() {
+        val actual = web.url.orEmpty()
+        val m = Regex("/marketplace/item/(\\d+)").find(actual)
+        if (m == null) {
+            android.widget.Toast.makeText(this, "Abra primero una publicación de Marketplace", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        web.evaluateJavascript(jsItemFb) { res ->
+            val o = try {
+                JSONObject(JSONTokener(res).nextValue() as String)
+            } catch (e: Exception) {
+                JSONObject()
+            }
+            val ficha = Compartidos.ficha(
+                "FB" + m.groupValues[1],
+                o.optString("t"), o.optString("p"), "https://www.facebook.com/marketplace/item/${m.groupValues[1]}/",
+                o.optString("img"), o.optString("dsc"),
+            )
+            store.registrarFichas(JSONArray().put(ficha))
+            android.widget.Toast.makeText(this, "⭐ Guardado en Detectados", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // ------------------------------------------------------------------ LISTAS
 
     private fun prepararLista(titulo: String, nav: Int) {
@@ -523,10 +573,20 @@ class MainActivity : AppCompatActivity() {
     private fun precioNum(o: JSONObject): Long =
         o.optString("p").replace(".", "").replace(",", "").trim().toLongOrNull() ?: Long.MAX_VALUE
 
+    private var filtro = 0
+
+    private fun esMarketplace(o: JSONObject) = o.optString("f") == "Marketplace"
+
     /** orden: 0 = más recientes, 1 = menor precio, 2 = mayor precio */
     private fun mostrarDetectados(orden: Int) {
         modoRevision = false
-        val todas = store.fichas()
+        val todasSin = store.fichas()
+        val todas = when (filtro) {
+            1 -> todasSin.filter { it.has("s") && it.optString("s").isBlank() && !esMarketplace(it) }
+            2 -> todasSin.filter { !esMarketplace(it) }
+            3 -> todasSin.filter { esMarketplace(it) }
+            else -> todasSin
+        }
         val ordenadas = when (orden) {
             1 -> todas.sortedBy { precioNum(it) }
             2 -> todas.sortedByDescending { if (precioNum(it) == Long.MAX_VALUE) -1L else precioNum(it) }
@@ -544,8 +604,27 @@ class MainActivity : AppCompatActivity() {
         hs.isHorizontalScrollBarEnabled = false
         hs.addView(chips)
         lista.addView(hs)
+        lista.addView(Estilo.espacio(this, 8f))
+        val chips2 = LinearLayout(this)
+        chips2.orientation = LinearLayout.HORIZONTAL
+        listOf("Todos", "👤 Particulares", "TuCarro", "Marketplace").forEachIndexed { i, t ->
+            val p = LinearLayout.LayoutParams(-2, -2)
+            p.setMargins(0, 0, d(8f), 0)
+            chips2.addView(Estilo.chip(this, t, i == filtro) { filtro = i; mostrarDetectados(orden) }, p)
+        }
+        val hs2 = HorizontalScrollView(this)
+        hs2.isHorizontalScrollBarEnabled = false
+        hs2.addView(chips2)
+        lista.addView(hs2)
         lista.addView(Estilo.espacio(this, 10f))
-        if (todas.isEmpty()) lista.addView(vacio("Todavía no hay carros detectados.\nToque “Revisar ahora” en Inicio."))
+        if (todas.isEmpty()) {
+            lista.addView(
+                vacio(
+                    if (filtro == 3) "Aún no ha guardado carros de Marketplace.\nAbra una publicación en 🛒 y toque “⭐ Guardar en Detectados”,\no compártala desde Facebook a Jerocar."
+                    else "No hay carros con este filtro todavía.",
+                ),
+            )
+        }
         ordenadas.take(150).forEach { lista.addView(tarjeta(it)) }
     }
 
@@ -605,7 +684,12 @@ class MainActivity : AppCompatActivity() {
             etiquetas.addView(b, p)
         }
         if (nuevo) etiqueta("NUEVO", Estilo.NARANJA, Color.WHITE)
-        etiqueta(o.optString("f").ifBlank { "TuCarro" }, Color.parseColor("#FFE600"), Color.parseColor("#1A1A1A"))
+        val fuente = o.optString("f").ifBlank { "TuCarro" }
+        if (fuente == "Marketplace") {
+            etiqueta("Marketplace", Color.parseColor("#1877F2"), Color.WHITE)
+        } else {
+            etiqueta(fuente, Color.parseColor("#FFE600"), Color.parseColor("#1A1A1A"))
+        }
         val vendedor = o.optString("s")
         if (vendedor.isNotBlank()) {
             etiqueta("🏪 $vendedor", Estilo.TARJETA2, Estilo.GRIS)
@@ -630,7 +714,7 @@ class MainActivity : AppCompatActivity() {
         card.setOnClickListener {
             modoRevision = false
             pestana = 0
-            tituloWeb.text = "Publicación"
+            tituloWeb.text = if (u.contains("facebook.com")) "Marketplace" else "Publicación"
             segmento.visibility = View.GONE
             banner.visibility = View.GONE
             ponerVista(V_WEB, 2)
