@@ -166,6 +166,28 @@ class MainActivity : AppCompatActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
+                if (u.scheme == "intent") {
+                    try {
+                        val it = Intent.parseUri(u.toString(), Intent.URI_INTENT_SCHEME)
+                        val dato = it.data
+                        if (dato != null && abrirWhatsApp(dato)) return true
+                        if (it.`package` == "com.whatsapp" && mensajePendiente != null) it.putExtra(Intent.EXTRA_TEXT, mensajePendiente)
+                        startActivity(it)
+                    } catch (e: Exception) {
+                        // se ignora
+                    }
+                    return true
+                }
+                if (abrirWhatsApp(u)) return true
+                val h = u.host.orEmpty()
+                if (h.contains("m.me") || h.contains("messenger.com")) {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, u))
+                    } catch (e: Exception) {
+                        // se ignora
+                    }
+                    return true
+                }
                 if (u.scheme == "http" || u.scheme == "https") return false
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, u))
@@ -552,6 +574,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var diasMarket = 1
+    private var mensajePendiente: String? = null
+
+    /** Enlaces de WhatsApp de la página del vendedor: se abren en WhatsApp con el mensaje ya escrito. */
+    private fun abrirWhatsApp(u: android.net.Uri): Boolean {
+        val host = u.host.orEmpty()
+        val esWa = u.scheme == "whatsapp" || host.contains("wa.me") || host.contains("api.whatsapp.com") || host.contains("web.whatsapp.com")
+        if (!esWa) return false
+        val msg = mensajePendiente
+        val destino = if (msg != null && u.scheme != "whatsapp") {
+            val b = u.buildUpon().clearQuery()
+            u.queryParameterNames.filter { it != "text" }.forEach { k -> u.getQueryParameter(k)?.let { b.appendQueryParameter(k, it) } }
+            b.appendQueryParameter("text", msg)
+            b.build()
+        } else {
+            u
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, destino))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "No pude abrir WhatsApp", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        return true
+    }
     private var modoSeleccion = false
 
     private val jsSelOn = """
@@ -723,6 +768,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun abrir(i: Int) {
+        mensajePendiente = null
         if (i != 2) modoSeleccion = false
         modoRevision = false
         pestana = i
@@ -1007,7 +1053,13 @@ class MainActivity : AppCompatActivity() {
         val escribir = Estilo.texto(this, "💬  Escribir al vendedor", 12.5f, Estilo.CIAN, true)
         escribir.setPadding(d(10f), d(6f), d(10f), d(6f))
         escribir.background = Estilo.fondo(Estilo.TARJETA2, 10f, this, Estilo.BORDE)
-        escribir.setOnClickListener { Mensajes.dialogo(this, store.plantilla, o) { abrirEsta() } }
+        escribir.setOnClickListener {
+            Mensajes.dialogo(this, store.plantilla, o) { msg ->
+                abrirEsta()
+                mensajePendiente = msg
+                mostrarBanner("💬 Mensaje copiado · toque “Contactar” o “WhatsApp” del vendedor. Si es chat: mantenga presionado › Pegar")
+            }
+        }
         col.addView(escribir, LinearLayout.LayoutParams(-2, -2).also { it.topMargin = d(8f) })
         card.setOnClickListener {
             modoRevision = false

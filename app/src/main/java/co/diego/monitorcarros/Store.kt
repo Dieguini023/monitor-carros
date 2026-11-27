@@ -153,7 +153,7 @@ class Store(ctx: Context) {
     }
 
     var plantilla: String
-        get() = s("plantilla", Mensajes.PLANTILLA)
+        get() = s("plantilla", Mensajes.PLANTILLA).let { if (it == Mensajes.PLANTILLA_VIEJA) Mensajes.PLANTILLA else it }
         set(v) = put("plantilla", v)
 
     var ultimosNuevos: String

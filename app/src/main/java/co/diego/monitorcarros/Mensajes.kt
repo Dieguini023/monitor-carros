@@ -16,6 +16,8 @@ import java.util.Calendar
 /** Mensaje al vendedor: siempre lo envía el usuario, con un toque. */
 object Mensajes {
     const val PLANTILLA = "{saludo}, ¿cómo está? Vi su {carro} publicado en {fuente}{precio}. " +
+        "Estoy interesado y puedo concretar rápido. ¿Sigue disponible?"
+    const val PLANTILLA_VIEJA = "{saludo}, ¿cómo está? Vi su {carro} publicado en {fuente}{precio}. " +
         "Estoy interesado y puedo concretar rápido. ¿Sigue disponible? ¿Cuándo lo puedo ver?"
 
     fun saludo(): String {
@@ -41,8 +43,8 @@ object Mensajes {
         return if (d.length == 10 && d.startsWith("3")) "57$d" else d
     }
 
-    /** abrirPublicacion: lo que hace la app para mostrar el carro (dentro de Jerocar). */
-    fun dialogo(ctx: Context, plantilla: String, o: JSONObject, abrirPublicacion: () -> Unit) {
+    /** abrirPublicacion: abre el carro dentro de Jerocar con el mensaje ya copiado. */
+    fun dialogo(ctx: Context, plantilla: String, o: JSONObject, abrirPublicacion: (String) -> Unit) {
         val col = LinearLayout(ctx)
         col.orientation = LinearLayout.VERTICAL
         val pad = Estilo.dp(ctx, 18f)
@@ -54,13 +56,17 @@ object Mensajes {
         col.addView(Estilo.espacio(ctx, 10f))
         val tel = Estilo.campo(ctx, "", true)
         tel.inputType = InputType.TYPE_CLASS_PHONE
-        tel.hint = "Celular del vendedor (opcional)"
+        tel.hint = "Celular (solo para “WhatsApp con número”)"
         col.addView(tel)
 
         AlertDialog.Builder(ctx)
             .setTitle("💬 Escribir al vendedor")
             .setView(col)
-            .setPositiveButton("WhatsApp") { _, _ ->
+            .setPositiveButton("Copiar y contactar") { _, _ ->
+                copiar(ctx, texto.text.toString())
+                abrirPublicacion(texto.text.toString())
+            }
+            .setNeutralButton("WhatsApp con número") { _, _ ->
                 val msg = texto.text.toString()
                 val n = numero(tel.text.toString())
                 try {
@@ -74,11 +80,6 @@ object Mensajes {
                     copiar(ctx, msg)
                     Toast.makeText(ctx, "No encontré WhatsApp. Copié el mensaje.", Toast.LENGTH_LONG).show()
                 }
-            }
-            .setNeutralButton("Copiar y abrir publicación") { _, _ ->
-                copiar(ctx, texto.text.toString())
-                Toast.makeText(ctx, "Mensaje copiado. Péguelo en el chat del vendedor.", Toast.LENGTH_LONG).show()
-                abrirPublicacion()
             }
             .setNegativeButton("Cancelar", null)
             .show()
